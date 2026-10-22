@@ -1684,7 +1684,15 @@ void Fighter_procAnim(Fighter_GObj* gobj)
                 fp->shield_health = 60.0f;
             }
             if (pc_is_infinite_jumps_enabled()) {
-                fp->x1968_jumpsUsed = 0;
+                if (fp->can_multijump) {
+                    /* Jigglypuff/Kirby index their jump motion and velocity
+                     * tables by jumpsUsed - 1, so 0 in the air reads index -1
+                     * (garbage motion, endless float). Hold at 1 in the air:
+                     * always "has made one jump", never out of jumps. */
+                    fp->x1968_jumpsUsed = fp->ground_or_air == GA_Air ? 1 : 0;
+                } else {
+                    fp->x1968_jumpsUsed = 0;
+                }
             }
             if (pc_is_item_rain_enabled()) {
                 Fighter_ItemRainTick();
