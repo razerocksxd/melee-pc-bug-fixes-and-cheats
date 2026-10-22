@@ -3735,12 +3735,18 @@ static bool ftKb_SlotOk(u32 v)
     return v >= 0x80000000u && v < 0x86000000u;
 }
 
+/* Hat data is raw big-endian disc data, so every word read here is swapped. */
+static u32 ftKb_BE(const u32* p)
+{
+    return __builtin_bswap32(*p);
+}
+
 /* Validate a candidate FtPartsDesc at `d` (model_num + table pointer) against
  * `count` hat dobjs: every list it names must stay inside the hat. */
 static bool ftKb_VisDescOk(const u32* d, int count)
 {
-    u32 model_num = d[0];
-    u32 tab = d[1];
+    u32 model_num = ftKb_BE(&d[0]);
+    u32 tab = ftKb_BE(&d[1]);
     const u32* vt;
     int m, i;
 
@@ -3749,8 +3755,8 @@ static bool ftKb_VisDescOk(const u32* d, int count)
     }
     vt = DP(const u32, tab);
     for (m = 0; m < 4; m++) {
-        const FtPartsVisLookup* lk;
-        u32 slot = DP(const u32, vt)[m];
+        const u32* lk;
+        u32 slot = ftKb_BE(&vt[m]);
 
         if (slot == 0) {
             continue;
@@ -3758,11 +3764,10 @@ static bool ftKb_VisDescOk(const u32* d, int count)
         if (!ftKb_SlotOk(slot)) {
             return false;
         }
-        lk = DP(const FtPartsVisLookup, slot);
+        lk = DP(const u32, slot);
         for (i = 0; i < (int) model_num; i++) {
-            const u32* e = (const u32*) &lk[i];
-            u32 n = e[0];
-            u32 lst = e[1];
+            u32 n = ftKb_BE(&lk[i * 2]);
+            u32 lst = ftKb_BE(&lk[i * 2 + 1]);
             u32 j;
 
             if (n > 0x40 || (n != 0 && !ftKb_SlotOk(lst))) {
@@ -3770,8 +3775,8 @@ static bool ftKb_VisDescOk(const u32* d, int count)
             }
             for (j = 0; j < n; j++) {
                 const u32* ent = DP(const u32, lst) + j * 2;
-                u32 cnt = ent[0];
-                u32 idxp = ent[1];
+                u32 cnt = ftKb_BE(&ent[0]);
+                u32 idxp = ftKb_BE(&ent[1]);
                 u32 k;
 
                 if (cnt > 0x40 || (cnt != 0 && !ftKb_SlotOk(idxp))) {
@@ -3790,38 +3795,32 @@ static bool ftKb_VisDescOk(const u32* d, int count)
 
 /* The parts loader never filled the hat visibility table (x24), so every
  * alternate piece was drawn at once. KirbyHatStruct::desc is not at the same
- * place for every hat, so dump the struct and look for a descriptor that
- * validates. */
+ * place for every hat, so look for a descriptor that validates. */
 static void ftKb_FindHatVisTable(Fighter* fp, int kind, KirbyHatStruct* hat)
 {
     const u32* w = (const u32*) hat;
     int k, found = -1;
     int count = fp->u.kb.hat.x14.count;
 
-    for (k = 0; k < 10; k++) {
-        u32 t0 = 0, t1 = 0, t2 = 0, t3 = 0;
-        if (ftKb_SlotOk(w[k])) {
-            const u32* t = DP(const u32, w[k]);
-            t0 = t[0]; t1 = t[1]; t2 = t[2]; t3 = t[3];
-        }
-        pc_log_line("ftKb: hat %d struct w[%d] = %08x -> %08x %08x %08x %08x",
-                    kind, k, (unsigned) w[k], (unsigned) t0, (unsigned) t1,
-                    (unsigned) t2, (unsigned) t3);
-    }
-    for (k = 0; k < 9 && found < 0; k++) {
-        if (ftKb_VisDescOk(&w[k], count)) {
+    for (k = 0; k < 9; k++) {
+        bool ok = ftKb_VisDescOk(&w[k], count);
+        pc_log_line("ftKb: hat %d struct w[%d] = %08x (desc ok %d)", kind, k,
+                    (unsigned) ftKb_BE(&w[k]), (int) ok);
+        if (ok && found < 0) {
             found = k;
         }
     }
     if (found >= 0) {
-        ftParts_8007487C((FtPartsDesc*) &w[found], &fp->u.kb.hat.x24, 0,
-                         &fp->u.kb.hat.x14,
+        FtPartsDesc desc;
+        desc.model_num = ftKb_BE(&w[found]);
+        desc.vis_table = ftKb_BE(&w[found + 1]);
+        ftParts_8007487C(&desc, &fp->u.kb.hat.x24, 0, &fp->u.kb.hat.x14,
                          fp->u.kb.hat.x1C.data[0] != NULL
                              ? &fp->u.kb.hat.x1C
                              : &fp->u.kb.hat.x14);
         pc_log_line("ftKb: parts hat %d: visibility table found at word %d "
                     "(model_num %u)",
-                    kind, found, (unsigned) w[found]);
+                    kind, found, (unsigned) desc.model_num);
     } else {
         pc_log_line("ftKb: parts hat %d: no valid visibility table in hat "
                     "struct",
