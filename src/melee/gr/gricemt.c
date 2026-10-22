@@ -2060,7 +2060,13 @@ void onJointCollision(void* user_data, int joint_id, CollData* coll,
         if (gobj != NULL) {
             gp2 = gobj->user_data;
             if (gp2 != NULL) {
-                ((UnkFlagStruct*) &gp2->u.icemt.x14)->x0.b4 = 1;
+                /* The flag byte is read through icemt10's native-order bit
+                 * fields (x14_b4 = 0x10), but UnkFlagStruct numbers bits from
+                 * the MSB (b4 = 0x08), which is the bit x14_b3 reads. Going
+                 * through UnkFlagStruct therefore raised "fight already
+                 * started" instead of "player touched a high platform": the
+                 * climb never advanced and the Ice Climbers never came. */
+                gp2->u.icemt10.x14_b4 = 1;
             }
         }
     }
