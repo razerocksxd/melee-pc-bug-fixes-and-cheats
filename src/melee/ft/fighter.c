@@ -1599,7 +1599,7 @@ static void Fighter_DiagKirbyHat(Fighter* fp)
  * whose textures are swapped by an animation list (u.kb.x44) that is never set
  * up on PC. Left visible they draw stale garbage over Kirby's face (jagged
  * shards and a ring edge). They are the pieces with a multi-frame image table,
- * so keep those hidden. */
+ * so keep the first of those hidden. */
 static void Fighter_KbHideAnimHatPieces(Fighter* fp)
 {
     int i, n;
@@ -1620,6 +1620,9 @@ static void Fighter_KbHideAnimHatPieces(Fighter* fp)
         t = d->mobj->tobj;
         if (t != NULL && t->imagetbl != NULL && t->n_imagetbl > 1) {
             HSD_DObjSetFlags(d, DOBJ_HIDDEN);
+            /* Only the first such piece: hiding the second one as well
+             * exposed fur and a pink ring around the face. */
+            return;
         }
     }
 }
