@@ -1595,42 +1595,32 @@ static void Fighter_DiagKirbyHat(Fighter* fp)
              (void*) fp->x5AC.xC[3], (void*) fp->x5AC.xC[4]);
 }
 
-/* Probe: hide the Kirby parts-hat pieces (x14 list) one at a time, 4 s each,
- * to find which one draws the jagged shards. Test-only. */
-static void Fighter_KbPieceProbe(Fighter* fp)
+/* Kirby's parts hats (DK, Jigglypuff, Falco, ...) contain face overlay pieces
+ * whose textures are swapped by an animation list (u.kb.x44) that is never set
+ * up on PC. Left visible they draw stale garbage over Kirby's face (jagged
+ * shards and a ring edge). They are the pieces with a multi-frame image table,
+ * so keep those hidden. */
+static void Fighter_KbHideAnimHatPieces(Fighter* fp)
 {
-    static int frames;
-    static HSD_DObj* hidden;
-    static int last_idx = -1;
-    int n, idx;
+    int i, n;
 
-    if (fp->player_idx != 0 || fp->u.kb.hat.jobj != NULL ||
-        fp->u.kb.hat.x14.data == NULL || fp->u.kb.hat.x14.count < 1 ||
-        fp->u.kb.hat.x14.count > 0x20)
+    if (fp->u.kb.hat.jobj != NULL || fp->u.kb.hat.x14.data == NULL ||
+        fp->u.kb.hat.x14.count < 1 || fp->u.kb.hat.x14.count > 0x20)
     {
-        frames = 0;
-        hidden = NULL;
-        last_idx = -1;
         return;
     }
     n = fp->u.kb.hat.x14.count;
-    frames++;
-    if (frames < 120) {
-        return;
-    }
-    idx = ((frames - 120) / 240) % (n + 1); /* n = nothing hidden */
-    if (idx != last_idx) {
-        if (hidden != NULL) {
-            HSD_DObjClearFlags(hidden, DOBJ_HIDDEN);
-            hidden = NULL;
+    for (i = 0; i < n; i++) {
+        HSD_DObj* d = fp->u.kb.hat.x14.data[i];
+        HSD_TObj* t;
+
+        if (d == NULL || d->mobj == NULL) {
+            continue;
         }
-        if (idx < n && fp->u.kb.hat.x14.data[idx] != NULL) {
-            hidden = fp->u.kb.hat.x14.data[idx];
-            HSD_DObjSetFlags(hidden, DOBJ_HIDDEN);
+        t = d->mobj->tobj;
+        if (t != NULL && t->imagetbl != NULL && t->n_imagetbl > 1) {
+            HSD_DObjSetFlags(d, DOBJ_HIDDEN);
         }
-        last_idx = idx;
-        pc_log_line("kbpiece: hat kind %d now hiding x14[%d] of %d",
-                    (int) fp->u.kb.hat.kind, idx, n);
     }
 }
 
@@ -1641,7 +1631,7 @@ void Fighter_procAnim(Fighter_GObj* gobj)
     if (!fp->is_sleeping) {
         if (fp->kind == Ft_Kind_Kirby) {
             Fighter_DiagKirbyHat(fp);
-            Fighter_KbPieceProbe(fp);
+            Fighter_KbHideAnimHatPieces(fp);
         }
         /* Runs every frame, so respawns and freshly spawned enemies are caught
          * on their first awake frame. The HUD copy is only touched on change. */
