@@ -860,8 +860,7 @@ DISC_ASSERT_SIZE(itZeldaDinFireExplodeAttributes, 0x14);
 
 typedef struct itUnk4_ItemVars {
     /*  +0 ip+DD4 */ u8 pad[0x18];
-    /*  +18 ip+DEC */ u8 xDEC_b0 : 1;
-    /*  +18 ip+DEC */ u8 xDEC_b1 : 1;
+    /*  +18 ip+DEC */ UnkFlagStruct xDEC; ///< x0.b0 = others may collect, x0.b1 = owner may; same flag byte it_2E5A writes
     /*  +1C ip+DF0 */ Fighter_x1614_t xDF0;
 } itUnk4_ItemVars;
 

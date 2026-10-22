@@ -102,10 +102,10 @@ void ft_8007C77C(Fighter_GObj* gobj)
         }
         var_r29 = 0;
         if (ftLib_IsSamePlayer(gobj, ip->owner) != 0) {
-            if (ip->xDD4_itemVar.unk4.xDEC_b1) {
+            if (ip->xDD4_itemVar.unk4.xDEC.x0.b1) {
                 var_r29 = 1;
             }
-        } else if (ip->xDD4_itemVar.unk4.xDEC_b0) {
+        } else if (ip->xDD4_itemVar.unk4.xDEC.x0.b0) {
             var_r29 = 1;
         }
         if (!var_r29) {
