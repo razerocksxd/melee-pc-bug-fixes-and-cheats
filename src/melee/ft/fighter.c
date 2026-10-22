@@ -1595,38 +1595,6 @@ static void Fighter_DiagKirbyHat(Fighter* fp)
              (void*) fp->x5AC.xC[3], (void*) fp->x5AC.xC[4]);
 }
 
-/* Kirby's parts hats (DK, Jigglypuff, Falco, ...) contain face overlay pieces
- * whose textures are swapped by an animation list (u.kb.x44) that is never set
- * up on PC. Left visible they draw stale garbage over Kirby's face (jagged
- * shards and a ring edge). They are the pieces with a multi-frame image table,
- * so keep the first of those hidden. */
-static void Fighter_KbHideAnimHatPieces(Fighter* fp)
-{
-    int i, n;
-
-    if (fp->u.kb.hat.jobj != NULL || fp->u.kb.hat.x14.data == NULL ||
-        fp->u.kb.hat.x14.count < 1 || fp->u.kb.hat.x14.count > 0x20)
-    {
-        return;
-    }
-    n = fp->u.kb.hat.x14.count;
-    for (i = 0; i < n; i++) {
-        HSD_DObj* d = fp->u.kb.hat.x14.data[i];
-        HSD_TObj* t;
-
-        if (d == NULL || d->mobj == NULL) {
-            continue;
-        }
-        t = d->mobj->tobj;
-        if (t != NULL && t->imagetbl != NULL && t->n_imagetbl > 1) {
-            HSD_DObjSetFlags(d, DOBJ_HIDDEN);
-            /* Only the first such piece: hiding the second one as well
-             * exposed fur and a pink ring around the face. */
-            return;
-        }
-    }
-}
-
 void Fighter_procAnim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
@@ -1634,7 +1602,6 @@ void Fighter_procAnim(Fighter_GObj* gobj)
     if (!fp->is_sleeping) {
         if (fp->kind == Ft_Kind_Kirby) {
             Fighter_DiagKirbyHat(fp);
-            Fighter_KbHideAnimHatPieces(fp);
         }
         /* Runs every frame, so respawns and freshly spawned enemies are caught
          * on their first awake frame. The HUD copy is only touched on change. */

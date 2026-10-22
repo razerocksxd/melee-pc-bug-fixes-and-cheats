@@ -3761,6 +3761,34 @@ static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
                     "(model_num %u)",
                     arg1, (unsigned) hat->desc.model_num);
     }
+    /* The hat's animated texture list (u.kb.x44) was never built for parts
+     * hats, so the face overlay pieces (eyes etc., the ones with a multi-frame
+     * image table) were never driven and drew stale texture frames. The
+     * expression callbacks index this list in the order those pieces appear
+     * (idx 0 and 1 in the logs), so build it from them. */
+    {
+        CostumeTObjList* tl = &fp->u.kb.x44;
+        int k, nd = fp->u.kb.hat.x14.count;
+
+        tl->n_costume_tobjs = 0;
+        tl->x5D0 = NULL;
+        for (k = 0; k < nd && k < 0x20 && tl->n_costume_tobjs < 5; k++) {
+            HSD_DObj* d = fp->u.kb.hat.x14.data[k];
+            HSD_TObj* t = (d != NULL && d->mobj != NULL) ? d->mobj->tobj : NULL;
+            if (t != NULL && t->aobj != NULL && t->imagetbl != NULL &&
+                t->n_imagetbl > 1)
+            {
+                HSD_AObjSetRate(t->aobj, 0.0F);
+                tl->costume_tobjs[tl->n_costume_tobjs++] = t;
+            }
+        }
+        for (k = 0; k < (int) tl->n_costume_tobjs; k++) {
+            HSD_AObjReqAnim(tl->costume_tobjs[k]->aobj, 0.0F);
+            HSD_TObjAnim(tl->costume_tobjs[k]);
+        }
+        pc_log_line("ftKb: parts hat %d: built %u animated texture slots", arg1,
+                    (unsigned) tl->n_costume_tobjs);
+    }
     ftKb_DiagHatParts(fp, arg1);
     /* Kirby starts out non-metal: keep the metal variants hidden. */
     ftKb_SetHatMetalPartsHidden(fp, true);
