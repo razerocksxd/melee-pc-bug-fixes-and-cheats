@@ -3189,6 +3189,35 @@ void ftKb_SpecialN_800EF69C(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
     }
 }
 
+/* A "parts" hat (DK, Jigglypuff, Mewtwo, Falco, G&W) keeps a second list of
+ * hat pieces (x1C) that are the metal-look variants, drawn only while Kirby is
+ * metal. Their show/hide goes through the hat visibility table (x24), which
+ * the parts loader never fills, so on PC nothing ever hid them and they were
+ * drawn over Kirby all the time as a silver shell. Hide and show them
+ * directly instead. */
+static void ftKb_SetHatMetalPartsHidden(Fighter* fp, bool hidden)
+{
+    int i;
+    int n = fp->u.kb.hat.x1C.count;
+
+    if (fp->u.kb.hat.jobj != NULL || fp->u.kb.hat.x1C.data == NULL ||
+        fp->u.kb.hat.x1C.data[0] == NULL || n <= 0 || n > 0x20)
+    {
+        return;
+    }
+    for (i = 0; i < n; i++) {
+        HSD_DObj* d = fp->u.kb.hat.x1C.data[i];
+        if (d == NULL) {
+            continue;
+        }
+        if (hidden) {
+            HSD_DObjSetFlags(d, DOBJ_HIDDEN);
+        } else {
+            HSD_DObjClearFlags(d, DOBJ_HIDDEN);
+        }
+    }
+}
+
 void ftKb_UnkIntBoolFunc0(Fighter* fp, int arg1, bool arg2)
 {
     if (fp->u.kb.hat.x14.data != NULL) {
@@ -3216,6 +3245,7 @@ void ftKb_UnkIntBoolFunc0(Fighter* fp, int arg1, bool arg2)
                     ftParts_80074D7C(&fp->x5AC, arg1, &fp->x203C);
                     ftParts_80074CA0(&fp->u.kb.hat.x24, arg1,
                                      &fp->u.kb.hat.x1C);
+                    ftKb_SetHatMetalPartsHidden(fp, false);
                 }
             } else {
                 ftParts_80074D7C(&fp->x5AC, arg1, &fp->dobj_list);
@@ -3224,6 +3254,7 @@ void ftKb_UnkIntBoolFunc0(Fighter* fp, int arg1, bool arg2)
         } else {
             if (fp->u.kb.hat.jobj == NULL && arg1 == 2) {
                 ftParts_80074D7C(&fp->u.kb.hat.x24, arg1, &fp->u.kb.hat.x1C);
+                ftKb_SetHatMetalPartsHidden(fp, true);
                 return;
             }
             ftParts_80074D7C(&fp->u.kb.hat.x24, arg1, &fp->u.kb.hat.x14);
@@ -3711,6 +3742,8 @@ static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
     ftKb_SpecialN_800EF35C(gobj, arg1, part_dobj_indices);
     ftKb_SpecialN_800EF438(gobj, hat);
     ftKb_DiagHatParts(fp, arg1);
+    /* Kirby starts out non-metal: keep the metal variants hidden. */
+    ftKb_SetHatMetalPartsHidden(fp, true);
 }
 
 void ftKb_SpecialN_800F0FC0(Fighter_GObj* gobj)
