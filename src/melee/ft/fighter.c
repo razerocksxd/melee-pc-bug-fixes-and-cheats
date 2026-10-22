@@ -1595,17 +1595,71 @@ static void Fighter_DiagKirbyHat(Fighter* fp)
              (void*) fp->x5AC.xC[3], (void*) fp->x5AC.xC[4]);
 }
 
-/* Probe: Kirby's body turns into a silver shell when a "parts" hat is worn.
- * Cycle through shading-flag overrides on a timer and log the flags, so the
- * video + log show which flag causes it. Phases last 6 s each:
- * 0 untouched, 1 metal/x2227_b3/x2226_b5 cleared, 2 x2223_b2 forced,
- * 3 x2228_b0 and x2224_b0 cleared, 4 untouched. Test-only. */
-static void Fighter_KbShadeProbe(Fighter* fp)
+/* Probe: find which draw objects make the silver shell on Kirby when a
+ * "parts" hat is worn. Walk Kirby's whole joint tree, sort every DObj into
+ * groups (hat x14, hat x1C, Kirby's own list, untracked) and hide one group
+ * per 6 s phase, logging material details. Test-only. */
+#define KBS_MAX 256
+static HSD_DObj* kbs_d[KBS_MAX];
+static u8 kbs_cat[KBS_MAX]; /* 1 x14, 2 x1C, 4 own, 0 untracked */
+static u8 kbs_hid[KBS_MAX];
+static int kbs_n;
+
+static void kbs_walk(HSD_JObj* j, int depth)
+{
+    for (; j != NULL; j = HSD_JObjGetNext(j)) {
+        HSD_DObj* d = HSD_JObjGetDObj(j);
+        for (; d != NULL && kbs_n < KBS_MAX; d = d->next) {
+            kbs_d[kbs_n] = d;
+            kbs_n++;
+        }
+        if (depth < 40) {
+            kbs_walk(HSD_JObjGetChild(j), depth + 1);
+        }
+    }
+}
+
+static int kbs_in(HSD_DObj* d, HSD_DObj** list, int count)
+{
+    int i;
+    if (list == NULL) {
+        return 0;
+    }
+    for (i = 0; i < count && i < 64; i++) {
+        if (list[i] == d) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int kbs_member(int phase, int i)
+{
+    HSD_DObj* d = kbs_d[i];
+    switch (phase) {
+    case 1:
+        return (kbs_cat[i] & 2) != 0;
+    case 2:
+        return d->mobj != NULL && (d->mobj->rendermode & RENDER_SPECULAR);
+    case 3:
+        return d->mobj == NULL || d->mobj->tobj == NULL;
+    case 4:
+        return (kbs_cat[i] & 1) != 0;
+    case 5:
+        return kbs_cat[i] == 0;
+    case 6:
+        return (kbs_cat[i] & 4) != 0;
+    default:
+        return 0;
+    }
+}
+
+static void Fighter_KbShadeProbe(Fighter_GObj* gobj, Fighter* fp)
 {
     static int frames[8];
     static int last_kind[8];
     int slot = fp->player_idx & 7;
-    int phase;
+    int phase, i, c[8] = { 0 };
 
     if (fp->u.kb.hat.kind == 0) {
         last_kind[slot] = 0;
@@ -1619,31 +1673,61 @@ static void Fighter_KbShadeProbe(Fighter* fp)
                     last_kind[slot]);
     }
     frames[slot]++;
-    phase = (frames[slot] / 360) % 5;
-    if (frames[slot] % 360 == 1) {
-        pc_log_line("kbshade: player %d kind %d phase %d | is_metal %d "
-                    "x2226_b5 %d x2227_b3 %d x2223_b2 %d x2228_b0 %d "
-                    "x2224_b0 %d",
-                    slot, last_kind[slot], phase, (int) fp->is_metal,
-                    (int) fp->x2226_b5, (int) fp->x2227_b3,
-                    (int) fp->x2223_b2, (int) fp->x2228_b0,
-                    (int) fp->x2224_b0);
+    if (slot != 0) {
+        return;
     }
-    switch (phase) {
-    case 1:
-        fp->is_metal = 0;
-        fp->x2227_b3 = 0;
-        fp->x2226_b5 = 0;
-        break;
-    case 2:
-        fp->x2223_b2 = 1;
-        break;
-    case 3:
-        fp->x2228_b0 = 0;
-        fp->x2224_b0 = 0;
-        break;
-    default:
-        break;
+    if (frames[slot] == 30) {
+        kbs_n = 0;
+        kbs_walk(GET_JOBJ(gobj), 0);
+        for (i = 0; i < kbs_n; i++) {
+            HSD_DObj* d = kbs_d[i];
+            kbs_hid[i] = 0;
+            kbs_cat[i] =
+                (kbs_in(d, fp->u.kb.hat.x14.data, fp->u.kb.hat.x14.count) ? 1
+                                                                          : 0) |
+                (kbs_in(d, fp->u.kb.hat.x1C.data, fp->u.kb.hat.x1C.count) ? 2
+                                                                          : 0) |
+                (kbs_in(d, fp->dobj_list.data, fp->dobj_list.count) ? 4 : 0);
+            c[kbs_cat[i] & 7]++;
+        }
+        pc_log_line("kbshade: tree dobjs %d | untracked %d x14 %d x1C %d "
+                    "own %d mixed %d",
+                    kbs_n, c[0], c[1], c[2], c[4],
+                    c[3] + c[5] + c[6] + c[7]);
+        for (i = 0; i < kbs_n; i++) {
+            HSD_DObj* d = kbs_d[i];
+            HSD_MObj* m = d->mobj;
+            pc_log_line("kbshade: d%d cat %d hid %d rm %x tobj %d spec %02x%02x"
+                        "%02x shin %.1f alpha %.2f",
+                        i, kbs_cat[i], (int) (d->flags & DOBJ_HIDDEN),
+                        m != NULL ? (unsigned) m->rendermode : 0u,
+                        m != NULL && m->tobj != NULL,
+                        m != NULL && m->mat != NULL ? m->mat->specular.r : 0,
+                        m != NULL && m->mat != NULL ? m->mat->specular.g : 0,
+                        m != NULL && m->mat != NULL ? m->mat->specular.b : 0,
+                        m != NULL && m->mat != NULL ? (double) m->mat->shininess
+                                                    : 0.0,
+                        m != NULL && m->mat != NULL ? (double) m->mat->alpha
+                                                    : 0.0);
+        }
+    }
+    if (frames[slot] < 60 || kbs_n == 0) {
+        return;
+    }
+    phase = ((frames[slot] - 60) / 360) % 7;
+    if ((frames[slot] - 60) % 360 == 0) {
+        pc_log_line("kbshade: phase %d begins (hide group %d)", phase, phase);
+    }
+    for (i = 0; i < kbs_n; i++) {
+        int want = kbs_member(phase, i);
+        HSD_DObj* d = kbs_d[i];
+        if (want && !(d->flags & DOBJ_HIDDEN)) {
+            HSD_DObjSetFlags(d, DOBJ_HIDDEN);
+            kbs_hid[i] = 1;
+        } else if (!want && kbs_hid[i]) {
+            HSD_DObjClearFlags(d, DOBJ_HIDDEN);
+            kbs_hid[i] = 0;
+        }
     }
 }
 
@@ -1654,7 +1738,7 @@ void Fighter_procAnim(Fighter_GObj* gobj)
     if (!fp->is_sleeping) {
         if (fp->kind == Ft_Kind_Kirby) {
             Fighter_DiagKirbyHat(fp);
-            Fighter_KbShadeProbe(fp);
+            Fighter_KbShadeProbe(gobj, fp);
         }
         /* Runs every frame, so respawns and freshly spawned enemies are caught
          * on their first awake frame. The HUD copy is only touched on change. */
