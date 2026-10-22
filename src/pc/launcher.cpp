@@ -309,7 +309,7 @@ class Launcher final : public Rml::EventListener {
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf", "p1-invincible",
-                "sudden-death"};
+                "sudden-death", "infinite-shield", "infinite-jumps", "item-rain", "freeze-ai", "debug-menu", "damage-mult"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
         case 5:
@@ -576,6 +576,24 @@ class Launcher final : public Rml::EventListener {
         text("sudden-death", std::getenv("MELEE_SUDDEN_DEATH") ? "Environment override" :
                              prefs.sudden_death                ? "On" :
                                                                  "Off");
+        text("infinite-shield", std::getenv("MELEE_INFINITE_SHIELD") ? "Environment override" :
+              prefs.infinite_shield ? "On" :
+              "Off");
+        text("infinite-jumps", std::getenv("MELEE_INFINITE_JUMPS") ? "Environment override" :
+              prefs.infinite_jumps ? "On" :
+              "Off");
+        text("item-rain", std::getenv("MELEE_ITEM_RAIN") ? "Environment override" :
+              prefs.item_rain ? "On" :
+              "Off");
+        text("freeze-ai", std::getenv("MELEE_FREEZE_AI") ? "Environment override" :
+              prefs.freeze_ai ? "On" :
+              "Off");
+        text("debug-menu", std::getenv("MELEE_DEBUG_MENU") ? "Environment override" :
+              prefs.debug_menu ? "On" :
+              "Off");
+        text("damage-mult", std::getenv("MELEE_DAMAGE_MULT") ? "Environment override" :
+              prefs.damage_mult == 1 ? "Off" :
+              std::to_string(prefs.damage_mult) + "x");
         text("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         text("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -818,6 +836,37 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("sudden-death")->Focus();
+        } else if (id == "infinite-shield") {
+            prefs.infinite_shield = !prefs.infinite_shield;
+            save();
+            refresh_settings();
+            element("infinite-shield")->Focus();
+        } else if (id == "infinite-jumps") {
+            prefs.infinite_jumps = !prefs.infinite_jumps;
+            save();
+            refresh_settings();
+            element("infinite-jumps")->Focus();
+        } else if (id == "item-rain") {
+            prefs.item_rain = !prefs.item_rain;
+            save();
+            refresh_settings();
+            element("item-rain")->Focus();
+        } else if (id == "freeze-ai") {
+            prefs.freeze_ai = !prefs.freeze_ai;
+            save();
+            refresh_settings();
+            element("freeze-ai")->Focus();
+        } else if (id == "debug-menu") {
+            prefs.debug_menu = !prefs.debug_menu;
+            save();
+            refresh_settings();
+            element("debug-menu")->Focus();
+        } else if (id == "damage-mult") {
+            prefs.damage_mult = prefs.damage_mult == 1 ? 2 : prefs.damage_mult == 2 ? 5 :
+                                prefs.damage_mult == 5 ? 10 : 1;
+            save();
+            refresh_settings();
+            element("damage-mult")->Focus();
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
             save();
@@ -1468,7 +1517,7 @@ public:
                 "port-check-update"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf", "p1-invincible",
-                "sudden-death"};
+                "sudden-death", "infinite-shield", "infinite-jumps", "item-rain", "freeze-ai", "debug-menu", "damage-mult"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
         default: {
@@ -1648,6 +1697,24 @@ public:
         label("sudden-death", std::getenv("MELEE_SUDDEN_DEATH") ? "Environment override" :
                               prefs.sudden_death                ? "On" :
                                                                   "Off");
+        label("infinite-shield", std::getenv("MELEE_INFINITE_SHIELD") ? "Environment override" :
+               prefs.infinite_shield ? "On" :
+               "Off");
+        label("infinite-jumps", std::getenv("MELEE_INFINITE_JUMPS") ? "Environment override" :
+               prefs.infinite_jumps ? "On" :
+               "Off");
+        label("item-rain", std::getenv("MELEE_ITEM_RAIN") ? "Environment override" :
+               prefs.item_rain ? "On" :
+               "Off");
+        label("freeze-ai", std::getenv("MELEE_FREEZE_AI") ? "Environment override" :
+               prefs.freeze_ai ? "On" :
+               "Off");
+        label("debug-menu", std::getenv("MELEE_DEBUG_MENU") ? "Environment override" :
+               prefs.debug_menu ? "On" :
+               "Off");
+        label("damage-mult", std::getenv("MELEE_DAMAGE_MULT") ? "Environment override" :
+               prefs.damage_mult == 1 ? "Off" :
+               std::to_string(prefs.damage_mult) + "x");
         label("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         label("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -1857,6 +1924,19 @@ public:
             prefs.p1_invincible = !prefs.p1_invincible;
         } else if (id == "sudden-death") {
             prefs.sudden_death = !prefs.sudden_death;
+        } else if (id == "infinite-shield") {
+            prefs.infinite_shield = !prefs.infinite_shield;
+        } else if (id == "infinite-jumps") {
+            prefs.infinite_jumps = !prefs.infinite_jumps;
+        } else if (id == "item-rain") {
+            prefs.item_rain = !prefs.item_rain;
+        } else if (id == "freeze-ai") {
+            prefs.freeze_ai = !prefs.freeze_ai;
+        } else if (id == "debug-menu") {
+            prefs.debug_menu = !prefs.debug_menu;
+        } else if (id == "damage-mult") {
+            prefs.damage_mult = prefs.damage_mult == 1 ? 2 : prefs.damage_mult == 2 ? 5 :
+                                prefs.damage_mult == 5 ? 10 : 1;
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
         } else if (id == "backend") {
@@ -2226,6 +2306,52 @@ extern "C" bool pc_is_sudden_death_enabled(void) {
     }
     static const char* env = std::getenv("MELEE_SUDDEN_DEATH");
     return env ? env[0] != '0' : prefs.sudden_death;
+}
+extern "C" bool pc_is_infinite_shield_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_INFINITE_SHIELD");
+    return env ? env[0] != '0' : prefs.infinite_shield;
+}
+extern "C" bool pc_is_infinite_jumps_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_INFINITE_JUMPS");
+    return env ? env[0] != '0' : prefs.infinite_jumps;
+}
+extern "C" bool pc_is_item_rain_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_ITEM_RAIN");
+    return env ? env[0] != '0' : prefs.item_rain;
+}
+extern "C" bool pc_is_freeze_ai_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_FREEZE_AI");
+    return env ? env[0] != '0' : prefs.freeze_ai;
+}
+extern "C" bool pc_is_debug_menu_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_DEBUG_MENU");
+    return env ? env[0] != '0' : prefs.debug_menu;
+}
+extern "C" int pc_get_damage_multiplier(void) {
+    if (pc_net_deterministic()) {
+        return 1;
+    }
+    static const char* env = std::getenv("MELEE_DAMAGE_MULT");
+    if (env) {
+        int v = std::atoi(env);
+        return v == 2 || v == 5 || v == 10 ? v : 1;
+    }
+    return prefs.damage_mult;
 }
 extern "C" bool pc_is_ucf_enabled(void) {
     if (pc_net_deterministic()) {

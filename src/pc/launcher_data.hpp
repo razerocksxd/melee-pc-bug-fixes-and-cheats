@@ -44,6 +44,12 @@ struct Preferences {
     bool ucf = false;
     bool p1_invincible = false;
     bool sudden_death = false;
+    bool infinite_shield = false;
+    bool infinite_jumps = false;
+    bool item_rain = false;
+    bool freeze_ai = false;
+    bool debug_menu = false;
+    int damage_mult = 1;  // 1 = off, else 2, 5 or 10
     float music_volume = 1.0f;
     float sfx_volume = 1.0f;
     uint64_t install_id = 0;  // random once per install (LAN host election); 0 = not yet

@@ -1,6 +1,7 @@
 #include "fighter.h"
 
 #include <pc/pc.h>
+#include <melee/it/itspawn.h>
 
 #include <math.h>
 #include <placeholder.h>
@@ -1524,7 +1525,7 @@ void Fighter_procHitlag(Fighter_GObj* gobj)
  * HP, not percent, so pinning it to 999 would make them tanks. */
 #define PC_SUDDEN_DEATH_PERCENT 999
 
-static bool Fighter_IsSuddenDeathVictim(Fighter* fp)
+static bool Fighter_IsOpponentOfP1(Fighter* fp)
 {
     if (fp->player_idx == 0 || fp->x2225_b7) {
         return false;
@@ -1535,7 +1536,44 @@ static bool Fighter_IsSuddenDeathVictim(Fighter* fp)
     if (gm_8016B168() && fp->team == Player_GetTeam(0)) {
         return false;
     }
-    return pc_is_sudden_death_enabled();
+    return true;
+}
+
+static bool Fighter_IsSuddenDeathVictim(Fighter* fp)
+{
+    return Fighter_IsOpponentOfP1(fp) && pc_is_sudden_death_enabled();
+}
+
+/* Item rain cheat: every ~1.2 s drop a random common item at a random valid
+ * spot on the stage. Only items that need no stage-specific resources are
+ * picked. Driven from P1's per-frame update, so it only runs in a live match
+ * and never while paused. */
+static void Fighter_ItemRainTick(void)
+{
+    static const ItemKind kinds[] = {
+        It_Kind_Capsule, It_Kind_Box,     It_Kind_Taru,   It_Kind_Egg,
+        It_Kind_BombHei, It_Kind_Heart,   It_Kind_Tomato, It_Kind_Star,
+        It_Kind_Bat,     It_Kind_Sword,   It_Kind_Parasol, It_Kind_G_Shell,
+        It_Kind_R_Shell, It_Kind_L_Gun,   It_Kind_Freeze, It_Kind_Foods,
+        It_Kind_MSBomb,  It_Kind_Flipper, It_Kind_S_Scope, It_Kind_StarRod,
+        It_Kind_LipStick, It_Kind_Harisen, It_Kind_F_Flower, It_Kind_Kinoko,
+        It_Kind_DKinoko, It_Kind_Hammer,  It_Kind_ScBall, It_Kind_RabbitC,
+        It_Kind_MetalB,  It_Kind_Spycloak,
+    };
+    static u32 timer;
+    static u32 rng = 0x2545F491u;
+    Vec3 pos;
+
+    if (++timer < 75) {
+        return;
+    }
+    timer = 0;
+    rng ^= rng << 13;
+    rng ^= rng >> 17;
+    rng ^= rng << 5;
+    if (it_8026CB3C(&pos)) {
+        it_8026D258(&pos, kinds[rng % (sizeof(kinds) / sizeof(kinds[0]))]);
+    }
 }
 
 /* Diagnostic: Kirby's copy-ability data has been seen holding small integers
@@ -1605,6 +1643,17 @@ void Fighter_procAnim(Fighter_GObj* gobj)
         }
         /* Runs every frame, so respawns and freshly spawned enemies are caught
          * on their first awake frame. The HUD copy is only touched on change. */
+        if (fp->player_idx == 0) {
+            if (pc_is_infinite_shield_enabled() && fp->shield_health < 60.0f) {
+                fp->shield_health = 60.0f;
+            }
+            if (pc_is_infinite_jumps_enabled()) {
+                fp->x1968_jumpsUsed = 0;
+            }
+            if (pc_is_item_rain_enabled()) {
+                Fighter_ItemRainTick();
+            }
+        }
         if (fp->dmg.x1830_percent < PC_SUDDEN_DEATH_PERCENT &&
             Fighter_IsSuddenDeathVictim(fp))
         {
@@ -1982,6 +2031,12 @@ void Fighter_procInput(Fighter_GObj* gobj)
                 tempf1 = ftCo_GetCpuRTrigger(fp);
 
                 fp->input.triggers[0] = (tempf0 > tempf1) ? tempf0 : tempf1;
+                if (fp->player_idx != 0 && pc_is_freeze_ai_enabled()) {
+                    /* Freeze CPUs cheat: the AI sees no input at all. */
+                    fp->input.lstick[0].x = fp->input.lstick[0].y = 0.0f;
+                    fp->input.cstick[0].x = fp->input.cstick[0].y = 0.0f;
+                    fp->input.triggers[0] = 0.0f;
+                }
 
             } else {
                 s8* h = ftCo_ucf_raw_x[fp->player_idx];
@@ -2040,6 +2095,9 @@ void Fighter_procInput(Fighter_GObj* gobj)
 
             if (ftCo_IsCpuControlled(fp)) {
                 fp->input.held_buttons[0] = ftCo_GetCpuButtons(fp);
+                if (fp->player_idx != 0 && pc_is_freeze_ai_enabled()) {
+                    fp->input.held_buttons[0] = 0;
+                }
             } else {
                 fp->input.held_buttons[0] =
                     HSD_PadGameStatus[fp->pad_port].button;
@@ -2826,6 +2884,9 @@ void Fighter_TakeDamage_8006CC7C(Fighter* fp, float damage_amount)
      * metal health) just sees a 0-damage hit. */
     if (fp->player_idx == 0 && pc_is_p1_invincible_enabled()) {
         damage_amount = 0.0f;
+    } else if (pc_get_damage_multiplier() > 1 && Fighter_IsOpponentOfP1(fp)) {
+        /* Damage multiplier cheat: every opponent hit is scaled. */
+        damage_amount *= (float) pc_get_damage_multiplier();
     }
 
     if (!fp->x2226_b4 || fp->x2226_b3) {

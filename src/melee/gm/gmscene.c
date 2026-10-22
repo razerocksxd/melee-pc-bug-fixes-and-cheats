@@ -286,6 +286,27 @@ static inline u64 maybe_gm_801A48A4(u8 i)
 static bool gm_RunSimTick(void (*on_frame)(void), struct gm_80479D58_t* temp_r25)
 {
     lb_800198E0();
+#ifdef TARGET_PC
+    {
+        /* Debug menu toggle: the Action Replay "debug menu" code just sets
+         * DbLevel to DebugRom. Done here every tick so the launcher and F1
+         * overlay can flip it live; the level the game had is put back when
+         * the option goes off. */
+        static bool forced;
+        static DbLKind saved;
+
+        if (pc_is_debug_menu_enabled()) {
+            if (!forced && DbLevel < DbLKind_DebugRom) {
+                saved = DbLevel;
+                DbLevel = DbLKind_DebugRom;
+                forced = true;
+            }
+        } else if (forced) {
+            DbLevel = saved;
+            forced = false;
+        }
+    }
+#endif
     if (DbLevel >= DbLKind_DebugRom) {
         gm_801A4970(&temp_r25->unk_10.db_input);
     }

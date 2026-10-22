@@ -373,7 +373,12 @@ Preferences load_preferences(const std::filesystem::path& path) {
                 prefs.scale = value;
         } else if (key == "check_updates" || key == "custom_textures" || key == "unlock_all" ||
                    key == "frozen_stadium" || key == "free_camera" || key == "ucf" ||
-                   key == "p1_invincible" || key == "sudden_death" || key == "reverb")
+                   key == "p1_invincible" || key == "sudden_death" ||
+                   key == "infinite_shield" ||
+                   key == "infinite_jumps" ||
+                   key == "item_rain" ||
+                   key == "freeze_ai" ||
+                   key == "debug_menu" || key == "reverb")
         {
             int value;
             if (row >> value && (value == 0 || value == 1)) {
@@ -393,9 +398,23 @@ Preferences load_preferences(const std::filesystem::path& path) {
                     prefs.p1_invincible = value;
                 else if (key == "sudden_death")
                     prefs.sudden_death = value;
+                else if (key == "infinite_shield")
+                    prefs.infinite_shield = value;
+                else if (key == "infinite_jumps")
+                    prefs.infinite_jumps = value;
+                else if (key == "item_rain")
+                    prefs.item_rain = value;
+                else if (key == "freeze_ai")
+                    prefs.freeze_ai = value;
+                else if (key == "debug_menu")
+                    prefs.debug_menu = value;
                 else if (key == "reverb")
                     prefs.reverb = value;
             }
+        } else if (key == "damage_mult") {
+            int value;
+            if (row >> value && (value == 1 || value == 2 || value == 5 || value == 10))
+                prefs.damage_mult = value;
         } else if (key == "hud_mode") {
             int value;
             if (row >> value && (value == 0 || value == 1))
@@ -433,7 +452,7 @@ bool save_preferences(
          << prefs.check_updates << "\ncustom_textures " << prefs.custom_textures << "\nunlock_all "
          << prefs.unlock_all << "\nhud_mode " << prefs.hud_mode << "\nfrozen_stadium "
          << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera << "\nucf " << prefs.ucf
-         << "\np1_invincible " << prefs.p1_invincible << "\nsudden_death " << prefs.sudden_death
+         << "\np1_invincible " << prefs.p1_invincible << "\nsudden_death " << prefs.sudden_death << "\ninfinite_shield " << prefs.infinite_shield << "\ninfinite_jumps " << prefs.infinite_jumps << "\nitem_rain " << prefs.item_rain << "\nfreeze_ai " << prefs.freeze_ai << "\ndebug_menu " << prefs.debug_menu << "\ndamage_mult " << prefs.damage_mult
          << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume
          << "\ninstall_id " << std::hex << prefs.install_id << std::dec << '\n';
     text << "reverb " << prefs.reverb << '\n';

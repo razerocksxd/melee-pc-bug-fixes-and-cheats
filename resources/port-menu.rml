@@ -127,6 +127,36 @@
               </span>
               <button id="sudden-death" class="value">Off</button>
             </div>
+            <div class="row" data-desc="Player 1's shield never shrinks or breaks. Offline only.">
+              <span class="name">Infinite shields<span class="detail">Player 1's shield never shrinks or breaks. Offline only.</span>
+              </span>
+              <button id="infinite-shield" class="value">Off</button>
+            </div>
+            <div class="row" data-desc="Player 1 can jump in the air as many times as they like. Offline only.">
+              <span class="name">Infinite jumps<span class="detail">Player 1 can jump in the air as many times as they like. Offline only.</span>
+              </span>
+              <button id="infinite-jumps" class="value">Off</button>
+            </div>
+            <div class="row" data-desc="A random item appears every second or so, whatever the item switch says. Offline only.">
+              <span class="name">Item rain<span class="detail">A random item appears every second or so, whatever the item switch says. Offline only.</span>
+              </span>
+              <button id="item-rain" class="value">Off</button>
+            </div>
+            <div class="row" data-desc="CPU fighters stand still and do nothing. Offline only.">
+              <span class="name">Freeze CPUs<span class="detail">CPU fighters stand still and do nothing. Offline only.</span>
+              </span>
+              <button id="freeze-ai" class="value">Off</button>
+            </div>
+            <div class="row" data-desc="Opponents take 2x, 5x or 10x damage from every hit. Offline only.">
+              <span class="name">Damage multiplier<span class="detail">Opponents take 2x, 5x or 10x damage from every hit. Offline only.</span>
+              </span>
+              <button id="damage-mult" class="value">Off</button>
+            </div>
+            <div class="row" data-desc="Turns on the game's debug mode, the Action Replay debug-menu code: at the title screen Y opens the debug menu, X the sound test, A the debug VS. Offline only.">
+              <span class="name">Debug menu<span class="detail">Turns on the game's debug mode, the Action Replay debug-menu code: at the title screen Y opens the debug menu, X the sound test, A the debug VS. Offline only.</span>
+              </span>
+              <button id="debug-menu" class="value">Off</button>
+            </div>
           </div>
           <div id="page-audio" class="page">
             <div class="row" data-desc="Left/right or drag to adjust.">
