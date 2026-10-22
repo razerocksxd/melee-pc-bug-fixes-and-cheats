@@ -3730,6 +3730,105 @@ static void ftKb_DiagHatParts(Fighter* fp, int kind)
     }
 }
 
+static bool ftKb_SlotOk(u32 v)
+{
+    return v >= 0x80000000u && v < 0x86000000u;
+}
+
+/* Validate a candidate FtPartsDesc at `d` (model_num + table pointer) against
+ * `count` hat dobjs: every list it names must stay inside the hat. */
+static bool ftKb_VisDescOk(const u32* d, int count)
+{
+    u32 model_num = d[0];
+    u32 tab = d[1];
+    const u32* vt;
+    int m, i;
+
+    if (model_num < 1 || model_num > 11 || !ftKb_SlotOk(tab)) {
+        return false;
+    }
+    vt = DP(const u32, tab);
+    for (m = 0; m < 4; m++) {
+        const FtPartsVisLookup* lk;
+        u32 slot = DP(const u32, vt)[m];
+
+        if (slot == 0) {
+            continue;
+        }
+        if (!ftKb_SlotOk(slot)) {
+            return false;
+        }
+        lk = DP(const FtPartsVisLookup, slot);
+        for (i = 0; i < (int) model_num; i++) {
+            const u32* e = (const u32*) &lk[i];
+            u32 n = e[0];
+            u32 lst = e[1];
+            u32 j;
+
+            if (n > 0x40 || (n != 0 && !ftKb_SlotOk(lst))) {
+                return false;
+            }
+            for (j = 0; j < n; j++) {
+                const u32* ent = DP(const u32, lst) + j * 2;
+                u32 cnt = ent[0];
+                u32 idxp = ent[1];
+                u32 k;
+
+                if (cnt > 0x40 || (cnt != 0 && !ftKb_SlotOk(idxp))) {
+                    return false;
+                }
+                for (k = 0; k < cnt; k++) {
+                    if (DP(const u8, idxp)[k] >= count) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    return true;
+}
+
+/* The parts loader never filled the hat visibility table (x24), so every
+ * alternate piece was drawn at once. KirbyHatStruct::desc is not at the same
+ * place for every hat, so dump the struct and look for a descriptor that
+ * validates. */
+static void ftKb_FindHatVisTable(Fighter* fp, int kind, KirbyHatStruct* hat)
+{
+    const u32* w = (const u32*) hat;
+    int k, found = -1;
+    int count = fp->u.kb.hat.x14.count;
+
+    for (k = 0; k < 10; k++) {
+        u32 t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+        if (ftKb_SlotOk(w[k])) {
+            const u32* t = DP(const u32, w[k]);
+            t0 = t[0]; t1 = t[1]; t2 = t[2]; t3 = t[3];
+        }
+        pc_log_line("ftKb: hat %d struct w[%d] = %08x -> %08x %08x %08x %08x",
+                    kind, k, (unsigned) w[k], (unsigned) t0, (unsigned) t1,
+                    (unsigned) t2, (unsigned) t3);
+    }
+    for (k = 0; k < 9 && found < 0; k++) {
+        if (ftKb_VisDescOk(&w[k], count)) {
+            found = k;
+        }
+    }
+    if (found >= 0) {
+        ftParts_8007487C((FtPartsDesc*) &w[found], &fp->u.kb.hat.x24, 0,
+                         &fp->u.kb.hat.x14,
+                         fp->u.kb.hat.x1C.data[0] != NULL
+                             ? &fp->u.kb.hat.x1C
+                             : &fp->u.kb.hat.x14);
+        pc_log_line("ftKb: parts hat %d: visibility table found at word %d "
+                    "(model_num %u)",
+                    kind, found, (unsigned) w[found]);
+    } else {
+        pc_log_line("ftKb: parts hat %d: no valid visibility table in hat "
+                    "struct",
+                    kind);
+    }
+}
+
 static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
                                      KirbyHatStruct* hat)
 {
@@ -3746,21 +3845,7 @@ static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
      * it is filled for parts hats too (mode 2 targets the x1C list), but this
      * loader never did, so every hat piece (alternate faces, blink and mouth
      * variants, ...) was drawn at once and poked through Kirby's face. */
-    if (hat->desc.model_num >= 1 && hat->desc.model_num <= 11 &&
-        DP(void, hat->desc.vis_table) != NULL)
-    {
-        ftParts_8007487C(&hat->desc, &fp->u.kb.hat.x24, 0, &fp->u.kb.hat.x14,
-                         fp->u.kb.hat.x1C.data[0] != NULL
-                             ? &fp->u.kb.hat.x1C
-                             : &fp->u.kb.hat.x14);
-        pc_log_line("ftKb: parts hat %d: visibility table filled "
-                    "(model_num %u)",
-                    arg1, (unsigned) hat->desc.model_num);
-    } else {
-        pc_log_line("ftKb: parts hat %d: no usable visibility table "
-                    "(model_num %u)",
-                    arg1, (unsigned) hat->desc.model_num);
-    }
+    ftKb_FindHatVisTable(fp, arg1, hat);
     /* The hat's animated texture list (u.kb.x44) was never built for parts
      * hats, so the face overlay pieces (eyes etc., the ones with a multi-frame
      * image table) were never driven and drew stale texture frames. The
