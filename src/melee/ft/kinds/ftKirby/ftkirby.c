@@ -3741,6 +3741,26 @@ static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
     ftKb_SpecialN_800EF0E4(gobj, arg1, part_dobj_indices);
     ftKb_SpecialN_800EF35C(gobj, arg1, part_dobj_indices);
     ftKb_SpecialN_800EF438(gobj, hat);
+    /* The model-hat loader fills the hat visibility table (x24) from the
+     * hat's FtPartsDesc, and G&W's loader and ftKb_UnkIntBoolFunc0 both assume
+     * it is filled for parts hats too (mode 2 targets the x1C list), but this
+     * loader never did, so every hat piece (alternate faces, blink and mouth
+     * variants, ...) was drawn at once and poked through Kirby's face. */
+    if (hat->desc.model_num >= 1 && hat->desc.model_num <= 11 &&
+        DP(void, hat->desc.vis_table) != NULL)
+    {
+        ftParts_8007487C(&hat->desc, &fp->u.kb.hat.x24, 0, &fp->u.kb.hat.x14,
+                         fp->u.kb.hat.x1C.data[0] != NULL
+                             ? &fp->u.kb.hat.x1C
+                             : &fp->u.kb.hat.x14);
+        pc_log_line("ftKb: parts hat %d: visibility table filled "
+                    "(model_num %u)",
+                    arg1, (unsigned) hat->desc.model_num);
+    } else {
+        pc_log_line("ftKb: parts hat %d: no usable visibility table "
+                    "(model_num %u)",
+                    arg1, (unsigned) hat->desc.model_num);
+    }
     ftKb_DiagHatParts(fp, arg1);
     /* Kirby starts out non-metal: keep the metal variants hidden. */
     ftKb_SetHatMetalPartsHidden(fp, true);
