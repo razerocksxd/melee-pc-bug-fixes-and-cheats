@@ -1,0 +1,41 @@
+<rml><head><title>Debug controls</title><style>
+body { font-family: "Liberation Sans"; font-size: 12dp; line-height: 15dp; color: #ffffff; background-color: #0b101ce6; position: absolute; top: 8dp; left: 8dp; width: 400dp; padding: 8dp; pointer-events: none; z-index: 90; }
+.t { font-size: 14dp; font-weight: bold; color: #ffd84d; margin-bottom: 2dp; }
+.s { color: #9fc4ff; font-weight: bold; margin-top: 6dp; }
+.r { display: block; }
+.k { display: inline-block; width: 128dp; color: #ffd84d; }
+.n { color: #c9d1e0; }
+#status { color: #ff9a9a; margin-bottom: 2dp; }
+</style></head><body>
+<div class="t">DEBUG CONTROLS (F2 or L3+R3 hides)</div>
+<div id="status">Debug mode is OFF</div>
+<div class="s">Title screen</div>
+<div class="r"><span class="k">Y / X / A</span>Debug menu / Sound test / Debug VS</div>
+<div class="s">Pause and stepping</div>
+<div class="r"><span class="k">X + D-Up</span>Pause / unpause (Start is not used)</div>
+<div class="r"><span class="k">Z (paused)</span>Advance one frame</div>
+<div class="r"><span class="k">L+R+A+Start</span>End the match (while paused)</div>
+<div class="r"><span class="k">X + D-Right</span>Dump object stats to the log</div>
+<div class="s">Display</div>
+<div class="r"><span class="k">X + D-Down</span>Cycle HUD / stage / background</div>
+<div class="r"><span class="k">R + D-Down</span>Cycle stage visuals</div>
+<div class="r"><span class="k">R + D-Up</span>Cycle all hit / hurt bubbles</div>
+<div class="r"><span class="k">R + D-Right</span>Cycle your fighter's bubbles</div>
+<div class="r"><span class="k">R + D-Left</span>Toggle misc fighter visuals</div>
+<div class="r"><span class="k">Y + D-Down</span>Animation info</div>
+<div class="r"><span class="k">B + D-Down</span>CPU handicap info</div>
+<div class="r"><span class="k">B + D-Left</span>Bonus (stat) info</div>
+<div class="r"><span class="k">X + D-Left</span>Sound info (port 1)</div>
+<div class="s">Camera</div>
+<div class="r"><span class="k">D-Up</span>Cycle camera modes (no other button held)</div>
+<div class="r"><span class="k">C-stick</span>Take camera control</div>
+<div class="r"><span class="k">B (free cam)</span>Camera position info</div>
+<div class="s">Fighter and speed</div>
+<div class="r"><span class="k">A + D-Right</span>Toggle 5x speed</div>
+<div class="r"><span class="k">Y + D-Left</span>Super Mushroom (hold A: Poison)</div>
+<div class="r"><span class="k">Y + D-Right</span>End it (hold A: Poison)</div>
+<div class="s">Items</div>
+<div class="r"><span class="k">L + D-Up / Down</span>Pick next / previous item</div>
+<div class="r"><span class="k">L + D-Right / Left</span>Pick next / previous Pokemon</div>
+<div class="r"><span class="k">D-Down</span>Spawn the picked item (nothing else held)</div>
+</body></rml>

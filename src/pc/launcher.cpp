@@ -1469,6 +1469,9 @@ class PortMenu final : public Rml::EventListener {
 public:
     Rml::ElementDocument* document = nullptr;
     Rml::ElementDocument* counter = nullptr;
+    Rml::ElementDocument* help = nullptr;
+    bool help_on = false;
+    uint32_t last_help = 0;
     SDL_Window* window = nullptr;
     bool open = false;
     // Set while the menu writes its own widgets: suppresses the Change and
@@ -2211,6 +2214,7 @@ extern "C" void pc_menu_init(SDL_Window* window) {
     port_menu.window = window;
     port_menu.document = context->LoadDocument((resources / "port-menu.rml").string());
     port_menu.counter = context->LoadDocument((resources / "fps.rml").string());
+    port_menu.help = context->LoadDocument((resources / "debug-help.rml").string());
     if (!port_menu.document) {
         SDL_Log("F1 menu: could not load port-menu.rml");
         return;
@@ -2225,9 +2229,33 @@ extern "C" void pc_menu_init(SDL_Window* window) {
 extern "C" void pc_menu_toggle(void) {
     port_menu.toggle();
 }
+/* Debug-controls cheat sheet: F2, or both stick clicks on a controller. */
+extern "C" void pc_debug_help_toggle(void) {
+    if (!port_menu.help)
+        return;
+    port_menu.help_on = !port_menu.help_on;
+    if (port_menu.help_on) {
+        port_menu.last_help = 0;
+        port_menu.help->Show(Rml::ModalFlag::None, Rml::FocusFlag::None);
+    } else {
+        port_menu.help->Hide();
+    }
+}
 extern "C" void pc_menu_event(const SDL_Event* event) {
-    if (event)
-        port_menu.gamepad(*event);
+    if (!event)
+        return;
+    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+        (event->gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_STICK ||
+            event->gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_STICK))
+    {
+        SDL_Gamepad* pad = SDL_GetGamepadFromID(event->gbutton.which);
+        const auto other = event->gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_STICK ?
+                               SDL_GAMEPAD_BUTTON_RIGHT_STICK :
+                               SDL_GAMEPAD_BUTTON_LEFT_STICK;
+        if (pad && SDL_GetGamepadButton(pad, other))
+            pc_debug_help_toggle();
+    }
+    port_menu.gamepad(*event);
 }
 extern "C" void pc_menu_update(void) {
     if (port_menu.counter) {
@@ -2247,6 +2275,14 @@ extern "C" void pc_menu_update(void) {
             }
         } else if (port_menu.counter->IsVisible())
             port_menu.counter->Hide();
+    }
+    if (port_menu.help && port_menu.help_on && SDL_GetTicks() - port_menu.last_help >= 500) {
+        const bool on = pc_is_debug_menu_enabled();
+        if (auto* status = port_menu.help->GetElementById("status")) {
+            status->SetInnerRML(on ? "Debug mode is ON: Start no longer pauses" :
+                                     "Debug mode is OFF: enable it in Cheats first");
+        }
+        port_menu.last_help = SDL_GetTicks();
     }
     port_menu.poll_binding();
 }
