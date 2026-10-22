@@ -127,6 +127,11 @@
               </span>
               <button id="sudden-death" class="value">Off</button>
             </div>
+            <div class="row" data-desc="Player 1 cannot be hit, grabbed or hurt at all. Offline only.">
+              <span class="name">P1 untouchable<span class="detail">Player 1 cannot be hit, grabbed or hurt at all. Offline only.</span>
+              </span>
+              <button id="p1-untouchable" class="value">Off</button>
+            </div>
             <div class="row" data-desc="Player 1's shield never shrinks or breaks. Offline only.">
               <span class="name">Infinite shields<span class="detail">Player 1's shield never shrinks or breaks. Offline only.</span>
               </span>

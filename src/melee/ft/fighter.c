@@ -1525,6 +1525,41 @@ void Fighter_procHitlag(Fighter_GObj* gobj)
  * HP, not percent, so pinning it to 999 would make them tanks. */
 #define PC_SUDDEN_DEATH_PERCENT 999
 
+/* P1 untouchable cheat. Every attack, grab, projectile and hazard tests the
+ * victim's hurt capsules, and those are placed from per-capsule bone offsets,
+ * so moving the offsets far away makes the fighter impossible to touch without
+ * touching any of the many hit paths. The original offsets are kept and put
+ * back when the cheat goes off. */
+#define PC_UNTOUCHABLE_FAR 100000.0f
+
+static void Fighter_ApplyUntouchable(Fighter* fp)
+{
+    static struct {
+        FighterHurtCapsule* cap;
+        Vec3 a, b;
+    } saved[48];
+    bool on = pc_is_p1_untouchable_enabled();
+    u32 i;
+
+    for (i = 0; i < fp->hurt_capsules_len && i < 48; i++) {
+        FighterHurtCapsule* h = &fp->hurt_capsules[i];
+        bool shifted = h->capsule.a_offset.y >= PC_UNTOUCHABLE_FAR * 0.5f;
+
+        if (on && !shifted) {
+            saved[i].cap = h;
+            saved[i].a = h->capsule.a_offset;
+            saved[i].b = h->capsule.b_offset;
+            h->capsule.a_offset.y = h->capsule.b_offset.y = PC_UNTOUCHABLE_FAR;
+            h->capsule.skip_update_pos = false;
+        } else if (!on && shifted && saved[i].cap == h) {
+            h->capsule.a_offset = saved[i].a;
+            h->capsule.b_offset = saved[i].b;
+            h->capsule.skip_update_pos = false;
+            saved[i].cap = NULL;
+        }
+    }
+}
+
 static bool Fighter_IsOpponentOfP1(Fighter* fp)
 {
     if (fp->player_idx == 0 || fp->x2225_b7) {
@@ -1644,6 +1679,7 @@ void Fighter_procAnim(Fighter_GObj* gobj)
         /* Runs every frame, so respawns and freshly spawned enemies are caught
          * on their first awake frame. The HUD copy is only touched on change. */
         if (fp->player_idx == 0) {
+            Fighter_ApplyUntouchable(fp);
             if (pc_is_infinite_shield_enabled() && fp->shield_health < 60.0f) {
                 fp->shield_health = 60.0f;
             }

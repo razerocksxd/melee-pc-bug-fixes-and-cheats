@@ -20,6 +20,7 @@ PINNED = {
     "pc_is_free_camera_enabled": "forced off in launcher.cpp",
     "pc_is_p1_invincible_enabled": "forced off in launcher.cpp",
     "pc_is_sudden_death_enabled": "forced off in launcher.cpp",
+    "pc_is_p1_untouchable_enabled": "forced off in launcher.cpp",
     "pc_is_infinite_shield_enabled": "forced off in launcher.cpp",
     "pc_is_infinite_jumps_enabled": "forced off in launcher.cpp",
     "pc_is_item_rain_enabled": "forced off in launcher.cpp",

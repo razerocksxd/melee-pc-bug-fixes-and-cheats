@@ -373,7 +373,7 @@ Preferences load_preferences(const std::filesystem::path& path) {
                 prefs.scale = value;
         } else if (key == "check_updates" || key == "custom_textures" || key == "unlock_all" ||
                    key == "frozen_stadium" || key == "free_camera" || key == "ucf" ||
-                   key == "p1_invincible" || key == "sudden_death" ||
+                   key == "p1_invincible" || key == "sudden_death" || key == "p1_untouchable" ||
                    key == "infinite_shield" ||
                    key == "infinite_jumps" ||
                    key == "item_rain" ||
@@ -398,6 +398,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
                     prefs.p1_invincible = value;
                 else if (key == "sudden_death")
                     prefs.sudden_death = value;
+                else if (key == "p1_untouchable")
+                    prefs.p1_untouchable = value;
                 else if (key == "infinite_shield")
                     prefs.infinite_shield = value;
                 else if (key == "infinite_jumps")
@@ -452,7 +454,7 @@ bool save_preferences(
          << prefs.check_updates << "\ncustom_textures " << prefs.custom_textures << "\nunlock_all "
          << prefs.unlock_all << "\nhud_mode " << prefs.hud_mode << "\nfrozen_stadium "
          << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera << "\nucf " << prefs.ucf
-         << "\np1_invincible " << prefs.p1_invincible << "\nsudden_death " << prefs.sudden_death << "\ninfinite_shield " << prefs.infinite_shield << "\ninfinite_jumps " << prefs.infinite_jumps << "\nitem_rain " << prefs.item_rain << "\nfreeze_ai " << prefs.freeze_ai << "\ndebug_menu " << prefs.debug_menu << "\ndamage_mult " << prefs.damage_mult
+         << "\np1_invincible " << prefs.p1_invincible << "\nsudden_death " << prefs.sudden_death << "\np1_untouchable " << prefs.p1_untouchable << "\ninfinite_shield " << prefs.infinite_shield << "\ninfinite_jumps " << prefs.infinite_jumps << "\nitem_rain " << prefs.item_rain << "\nfreeze_ai " << prefs.freeze_ai << "\ndebug_menu " << prefs.debug_menu << "\ndamage_mult " << prefs.damage_mult
          << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume
          << "\ninstall_id " << std::hex << prefs.install_id << std::dec << '\n';
     text << "reverb " << prefs.reverb << '\n';

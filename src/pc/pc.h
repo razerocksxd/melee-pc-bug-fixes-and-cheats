@@ -89,6 +89,7 @@ bool pc_is_free_camera_enabled(void);
 bool pc_is_ucf_enabled(void);
 bool pc_is_p1_invincible_enabled(void);
 bool pc_is_sudden_death_enabled(void);
+bool pc_is_p1_untouchable_enabled(void);
 bool pc_is_infinite_shield_enabled(void);
 bool pc_is_infinite_jumps_enabled(void);
 bool pc_is_item_rain_enabled(void);

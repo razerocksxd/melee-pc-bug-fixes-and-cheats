@@ -44,6 +44,7 @@ struct Preferences {
     bool ucf = false;
     bool p1_invincible = false;
     bool sudden_death = false;
+    bool p1_untouchable = false;
     bool infinite_shield = false;
     bool infinite_jumps = false;
     bool item_rain = false;

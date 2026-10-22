@@ -309,7 +309,7 @@ class Launcher final : public Rml::EventListener {
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf", "p1-invincible",
-                "sudden-death", "infinite-shield", "infinite-jumps", "item-rain", "freeze-ai", "debug-menu", "damage-mult"};
+                "sudden-death", "p1-untouchable", "infinite-shield", "infinite-jumps", "item-rain", "freeze-ai", "debug-menu", "damage-mult"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
         case 5:
@@ -576,6 +576,9 @@ class Launcher final : public Rml::EventListener {
         text("sudden-death", std::getenv("MELEE_SUDDEN_DEATH") ? "Environment override" :
                              prefs.sudden_death                ? "On" :
                                                                  "Off");
+        text("p1-untouchable", std::getenv("MELEE_P1_UNTOUCHABLE") ? "Environment override" :
+              prefs.p1_untouchable ? "On" :
+              "Off");
         text("infinite-shield", std::getenv("MELEE_INFINITE_SHIELD") ? "Environment override" :
               prefs.infinite_shield ? "On" :
               "Off");
@@ -836,6 +839,11 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("sudden-death")->Focus();
+        } else if (id == "p1-untouchable") {
+            prefs.p1_untouchable = !prefs.p1_untouchable;
+            save();
+            refresh_settings();
+            element("p1-untouchable")->Focus();
         } else if (id == "infinite-shield") {
             prefs.infinite_shield = !prefs.infinite_shield;
             save();
@@ -1520,7 +1528,7 @@ public:
                 "port-check-update"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf", "p1-invincible",
-                "sudden-death", "infinite-shield", "infinite-jumps", "item-rain", "freeze-ai", "debug-menu", "damage-mult"};
+                "sudden-death", "p1-untouchable", "infinite-shield", "infinite-jumps", "item-rain", "freeze-ai", "debug-menu", "damage-mult"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
         default: {
@@ -1700,6 +1708,9 @@ public:
         label("sudden-death", std::getenv("MELEE_SUDDEN_DEATH") ? "Environment override" :
                               prefs.sudden_death                ? "On" :
                                                                   "Off");
+        label("p1-untouchable", std::getenv("MELEE_P1_UNTOUCHABLE") ? "Environment override" :
+               prefs.p1_untouchable ? "On" :
+               "Off");
         label("infinite-shield", std::getenv("MELEE_INFINITE_SHIELD") ? "Environment override" :
                prefs.infinite_shield ? "On" :
                "Off");
@@ -1927,6 +1938,8 @@ public:
             prefs.p1_invincible = !prefs.p1_invincible;
         } else if (id == "sudden-death") {
             prefs.sudden_death = !prefs.sudden_death;
+        } else if (id == "p1-untouchable") {
+            prefs.p1_untouchable = !prefs.p1_untouchable;
         } else if (id == "infinite-shield") {
             prefs.infinite_shield = !prefs.infinite_shield;
         } else if (id == "infinite-jumps") {
@@ -2342,6 +2355,13 @@ extern "C" bool pc_is_sudden_death_enabled(void) {
     }
     static const char* env = std::getenv("MELEE_SUDDEN_DEATH");
     return env ? env[0] != '0' : prefs.sudden_death;
+}
+extern "C" bool pc_is_p1_untouchable_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_P1_UNTOUCHABLE");
+    return env ? env[0] != '0' : prefs.p1_untouchable;
 }
 extern "C" bool pc_is_infinite_shield_enabled(void) {
     if (pc_net_deterministic()) {
