@@ -373,7 +373,7 @@ Preferences load_preferences(const std::filesystem::path& path) {
                 prefs.scale = value;
         } else if (key == "check_updates" || key == "custom_textures" || key == "unlock_all" ||
                    key == "frozen_stadium" || key == "free_camera" || key == "ucf" ||
-                   key == "reverb")
+                   key == "p1_invincible" || key == "sudden_death" || key == "reverb")
         {
             int value;
             if (row >> value && (value == 0 || value == 1)) {
@@ -389,6 +389,10 @@ Preferences load_preferences(const std::filesystem::path& path) {
                     prefs.free_camera = value;
                 else if (key == "ucf")
                     prefs.ucf = value;
+                else if (key == "p1_invincible")
+                    prefs.p1_invincible = value;
+                else if (key == "sudden_death")
+                    prefs.sudden_death = value;
                 else if (key == "reverb")
                     prefs.reverb = value;
             }
@@ -429,6 +433,7 @@ bool save_preferences(
          << prefs.check_updates << "\ncustom_textures " << prefs.custom_textures << "\nunlock_all "
          << prefs.unlock_all << "\nhud_mode " << prefs.hud_mode << "\nfrozen_stadium "
          << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera << "\nucf " << prefs.ucf
+         << "\np1_invincible " << prefs.p1_invincible << "\nsudden_death " << prefs.sudden_death
          << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume
          << "\ninstall_id " << std::hex << prefs.install_id << std::dec << '\n';
     text << "reverb " << prefs.reverb << '\n';

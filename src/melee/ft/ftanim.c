@@ -1067,6 +1067,11 @@ void ftAnim_80070458(Fighter* fp, CostumeTObjList* tobj_list, u32 tobj_idx,
     if (tobj_idx >= tobj_list->n_costume_tobjs) {
         HSD_ASSERTREPORT(1264, 0, "texture no exist! %d %d\n", fp->player_idx,
                          tobj_idx);
+        /* On GameCube the assert halts. Here it only reports, and falling
+         * through reads costume_tobjs[tobj_idx] past the list: a Kirby with a
+         * copy hat (empty/stale u.kb.x44) crashed on that read (fault at 0x8E)
+         * the first time he took knockback. Nothing to animate, so stop. */
+        return;
     }
     tobjAnim(&tobj_list->costume_tobjs[tobj_idx], frame);
 }

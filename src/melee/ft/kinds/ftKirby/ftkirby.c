@@ -1,4 +1,5 @@
 #include "ftkirby.h"
+#include <pc/pc.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -3230,10 +3231,40 @@ void ftKb_UnkIntBoolFunc0(Fighter* fp, int arg1, bool arg2)
     }
 }
 
+/* Kirby's hat texture list (u.kb.x44) is read here but no code in this tree
+ * ever fills it, and a copy was seen reading 0xE out of a texture slot. Walk
+ * it only when every slot below the count is a plausible pointer; otherwise
+ * report (a few times) and skip, so the game keeps running while the real
+ * writer is tracked down. */
+static bool ftKb_HatTObjListValid(Fighter* fp, const char* where, int idx)
+{
+    static int reported;
+    CostumeTObjList* list = &fp->u.kb.x44;
+    u32 i;
+    bool ok = list->n_costume_tobjs <= 5 &&
+              (idx < 0 || (u32) idx < list->n_costume_tobjs);
+
+    for (i = 0; ok && i < list->n_costume_tobjs; i++) {
+        ok = (uintptr_t) list->costume_tobjs[i] >= 0x10000;
+    }
+    if (!ok && reported++ < 8) {
+        pc_log_line("ftKb: %s: hat texture list/index invalid, skipping "
+                 "(player %d, idx %d, hat kind %d, n %u, tobjs %p %p %p %p %p)",
+                 where, (int) fp->player_idx, idx, (int) fp->u.kb.hat.kind,
+                 (unsigned) list->n_costume_tobjs,
+                 (void*) list->costume_tobjs[0], (void*) list->costume_tobjs[1],
+                 (void*) list->costume_tobjs[2], (void*) list->costume_tobjs[3],
+                 (void*) list->costume_tobjs[4]);
+    }
+    return ok;
+}
+
 void ftKb_Init_UnkCallbackPairs0_0(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (fp->u.kb.hat.x14.data != NULL && fp->u.kb.hat.jobj == NULL) {
+    if (fp->u.kb.hat.x14.data != NULL && fp->u.kb.hat.jobj == NULL &&
+        ftKb_HatTObjListValid(fp, "reset", -1))
+    {
         ftAnim_800705E0(&fp->u.kb.x44);
     }
 }
@@ -3241,7 +3272,9 @@ void ftKb_Init_UnkCallbackPairs0_0(Fighter_GObj* gobj)
 void ftKb_Init_UnkCallbackPairs0_1(Fighter_GObj* gobj, int arg1, float arg2)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (fp->u.kb.hat.x14.data != NULL && fp->u.kb.hat.jobj == NULL) {
+    if (fp->u.kb.hat.x14.data != NULL && fp->u.kb.hat.jobj == NULL &&
+        ftKb_HatTObjListValid(fp, "anim", arg1))
+    {
         ftAnim_80070458(fp, &fp->u.kb.x44, arg1, arg2);
     }
 }
@@ -3606,6 +3639,66 @@ void ftKb_SpecialN_800F0F5C(Fighter_GObj* gobj)
 
 /// Load a hat that replaces fighter parts; counterpart of
 /// ftKb_SpecialN_800EF69C.
+/* Diagnostic for gray patches on Kirby when he copies a "parts" hat (DK,
+ * Jigglypuff, Mewtwo, Falco, Game & Watch). Every hat piece already has a
+ * material and a texture, so log what decides whether that texture is usable:
+ * image format and size, palette, and the texture-animation table. Kirby's own
+ * pieces (which draw correctly) are logged the same way as a baseline. */
+static void ftKb_DiagTObj(const char* tag, int i, HSD_DObj* d)
+{
+    HSD_MObj* m = d != NULL ? d->mobj : NULL;
+    HSD_TObj* t = m != NULL ? m->tobj : NULL;
+    struct HSD_ImageDesc* img = t != NULL ? t->imagedesc : NULL;
+
+    if (t == NULL) {
+        pc_log_line("hatparts: %s[%d] hidden %d NO TOBJ", tag, i,
+                    d != NULL ? (int) (d->flags & DOBJ_HIDDEN) : -1);
+        return;
+    }
+    pc_log_line("hatparts: %s[%d] hidden %d fmt %d %dx%d mip %u img %p "
+                "tlut %p(n %d) tlut_no %d imagetbl %p n %d tluttbl %p aobj %p "
+                "flags %x",
+                tag, i, (int) (d->flags & DOBJ_HIDDEN),
+                img != NULL ? (int) img->format : -1,
+                img != NULL ? (int) img->width : 0,
+                img != NULL ? (int) img->height : 0,
+                img != NULL ? (unsigned) img->mipmap : 0u,
+                img != NULL ? (void*) img->image_ptr : NULL, (void*) t->tlut,
+                t->tlut != NULL ? (int) t->tlut->n_entries : -1,
+                (int) t->tlut_no, (void*) t->imagetbl, (int) t->n_imagetbl,
+                (void*) t->tluttbl, (void*) t->aobj, (unsigned) t->flags);
+}
+
+static void ftKb_DiagHatParts(Fighter* fp, int kind)
+{
+    static int budget = 260;
+    int i, shown = 0;
+    int n = fp->u.kb.hat.x14.count;
+
+    if (budget <= 0) {
+        return;
+    }
+    pc_log_line("hatparts: ==== kind %d costume %d: hat dobjs %d, Kirby own "
+                "dobjs %d",
+                kind, (int) fp->costume_id, n, (int) fp->dobj_list.count);
+    for (i = 0; i < n && i < 32 && budget > 0; i++, budget--) {
+        ftKb_DiagTObj("hat", i, fp->u.kb.hat.x14.data[i]);
+    }
+    for (i = 0; i < (int) fp->dobj_list.count && i < 128 && shown < 6 &&
+                budget > 0;
+         i++)
+    {
+        HSD_DObj* d = fp->dobj_list.data[i];
+        if (d != NULL && !(d->flags & DOBJ_HIDDEN) && d->mobj != NULL &&
+            d->mobj->tobj != NULL)
+        {
+            ftKb_DiagTObj("own", i, d);
+            shown++;
+            budget--;
+        }
+    }
+}
+
 static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
                                      KirbyHatStruct* hat)
 {
@@ -3617,6 +3710,7 @@ static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
     ftKb_SpecialN_800EF0E4(gobj, arg1, part_dobj_indices);
     ftKb_SpecialN_800EF35C(gobj, arg1, part_dobj_indices);
     ftKb_SpecialN_800EF438(gobj, hat);
+    ftKb_DiagHatParts(fp, arg1);
 }
 
 void ftKb_SpecialN_800F0FC0(Fighter_GObj* gobj)

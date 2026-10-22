@@ -129,6 +129,16 @@ bool ftCo_800DD1E4(Fighter_GObj* gobj)
     return false;
 }
 
+/* ftCo_800DD724 stores transNOffset through throw_.xC (a Vec) and the throw
+ * phys/coll code reads it back as fighterthrow.self_vel_y/x. The two views of
+ * fp->mv.co must put those at the same offsets, as they did on GameCube. */
+_Static_assert(offsetof(Fighter, mv.co.fighterthrow.self_vel_y) ==
+                   offsetof(Fighter, mv.co.throw_.xC.y),
+               "fighterthrow.self_vel_y must overlay throw_.xC.y");
+_Static_assert(offsetof(Fighter, mv.co.fighterthrow.self_vel_x) ==
+                   offsetof(Fighter, mv.co.throw_.xC.z),
+               "fighterthrow.self_vel_x must overlay throw_.xC.z");
+
 void ftCo_800DD398(Fighter_GObj* gobj, FtMotionId msid, FtMotionId victim_msid,
                    float anim_speed)
 {

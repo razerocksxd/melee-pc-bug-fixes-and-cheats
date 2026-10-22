@@ -1,4 +1,5 @@
 #include "ftdrawcommon.h"
+#include <pc/pc.h>
 
 #include <Runtime/platform.h>
 
@@ -453,6 +454,24 @@ void ftDrawCommon_80081168(void)
     }
 }
 
+/* Diagnostic for the corrupt-visibility-table crash (see ftParts_GetVisLookup):
+ * name the fighter and state whose table was overwritten. */
+static void ftDrawCommon_ReportBogusVis(Fighter* fighter)
+{
+    static int reported;
+    int i;
+    for (i = 0; i < 5; i++) {
+        uintptr_t v = (uintptr_t) fighter->x5AC.xC[i];
+        if (v != 0 && v < 0x10000 && reported++ < 8) {
+            pc_log_line("ftdraw: fighter kind %d player %d motion %d costume %d: "
+                     "x5AC.xC[%d] = %p (model_num %u)",
+                     (int) fighter->kind, (int) fighter->player_idx,
+                     (int) fighter->motion_id, (int) fighter->costume_id, i,
+                     (void*) v, (unsigned) fighter->x5AC.model_num);
+        }
+    }
+}
+
 void ftDrawCommon_80081200(void)
 {
     Fighter_GObj* cur;
@@ -461,6 +480,7 @@ void ftDrawCommon_80081200(void)
     {
         Fighter* fighter = GET_FIGHTER(cur);
         PAD_STACK(4 * 2);
+        ftDrawCommon_ReportBogusVis(fighter);
         if (fighter->x5AC.xC[1] != NULL) {
             ftParts_800750C8(fighter, 0, 0);
             ftParts_800750C8(fighter, 2, 0);

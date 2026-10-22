@@ -1338,7 +1338,12 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         lbAudioAx_80023F28(lbAudioAx_8002305C(gm_801BEFB0(), !-r));
         lbBgFlash_800209F4();
         gm_804D6804.x0 = gm_804D6804.x4 = 0.0F;
-        memzero(staffInfo, sizeof(struct staffInfo_t));
+        /* The array holds 198 entries. struct staffInfo_t is the 0x948 bytes
+         * those occupied on GameCube (12-byte entries); here an entry is 24
+         * bytes, so that cleared only the first 99 and left the rest as heap
+         * garbage. The credits loop then wrote through garbage win[] pointers
+         * (crash right as the shooting game starts). */
+        memzero(staffInfo, 198 * sizeof(*staffInfo));
         for (i = 0; i < 6; i++) {
             gm_80480D58[i] = 0;
         }

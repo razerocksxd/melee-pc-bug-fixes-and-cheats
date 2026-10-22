@@ -1,4 +1,5 @@
 #include "ftparts.h"
+#include <pc/pc.h>
 
 #include <placeholder.h>
 
@@ -602,10 +603,35 @@ void ftParts_80074B0C(Fighter_GObj* gobj, int model_idx, int val)
     }
 }
 
+/* A visibility group slot is either NULL or a host pointer into disc data.
+ * A small non-NULL value there (observed: 0x7, right after Kirby inhaled
+ * Jigglypuff) means the table was overwritten, and walking it faults at
+ * draw time. Report the first few occurrences and treat the group as absent
+ * so the game keeps running; the log line names the culprit for a real fix. */
+static FtPartsVisLookup* ftParts_GetVisLookup(const FtPartsVis* vis, int idx)
+{
+    static int reported;
+    FtPartsVisLookup* lookup = vis->xC[idx];
+
+    if (lookup == NULL) {
+        return NULL;
+    }
+    if ((uintptr_t) lookup < 0x10000 || vis->model_num > 11) {
+        if (reported++ < 8) {
+            pc_log_line("ftParts: vis %p group %d holds bogus pointer %p "
+                     "(model_num %u, cleared %d); ignoring it",
+                     (const void*) vis, idx, (void*) lookup,
+                     (unsigned) vis->model_num, (int) vis->cleared[idx]);
+        }
+        return NULL;
+    }
+    return lookup;
+}
+
 void ftParts_80074B6C(Fighter* fp, FtPartsVis* vis, int idx,
                       DObjList* dobj_list)
 {
-    FtPartsVisLookup* lookup = vis->xC[idx]; // r4
+    FtPartsVisLookup* lookup = ftParts_GetVisLookup(vis, idx); // r4
     if (lookup != NULL && !vis->cleared[idx]) {
         int i; // r26
         for (i = 0; i < vis->model_num; i++) {
@@ -633,7 +659,7 @@ void ftParts_80074B6C(Fighter* fp, FtPartsVis* vis, int idx,
 
 void ftParts_80074CA0(FtPartsVis* vis, int idx, DObjList* dobj_list)
 {
-    FtPartsVisLookup* lookup = vis->xC[idx]; // r0
+    FtPartsVisLookup* lookup = ftParts_GetVisLookup(vis, idx); // r0
     if (lookup != NULL && !vis->cleared[idx]) {
         int i; // r24
         for (i = 0; i < vis->model_num; i++) {
@@ -655,7 +681,7 @@ void ftParts_80074CA0(FtPartsVis* vis, int idx, DObjList* dobj_list)
 
 void ftParts_80074D7C(FtPartsVis* vis, int idx, DObjList* dobj_list)
 {
-    FtPartsVisLookup* lookup = vis->xC[idx]; // r0
+    FtPartsVisLookup* lookup = ftParts_GetVisLookup(vis, idx); // r0
     if (lookup != NULL && vis->cleared[idx]) {
         int i; // r24
         for (i = 0; i < vis->model_num; i++) {

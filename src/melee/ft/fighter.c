@@ -1,5 +1,7 @@
 #include "fighter.h"
 
+#include <pc/pc.h>
+
 #include <math.h>
 #include <placeholder.h>
 
@@ -62,6 +64,7 @@
 #include <melee/db/db.h>
 #include <melee/ef/efasync.h>
 #include <melee/gm/gm_unsplit.h>
+#include <melee/gm/gmvs.h>
 #include <melee/gr/ground.h>
 #include <melee/gr/stage.h>
 #include <melee/if/ifmagnify.h>
@@ -865,6 +868,12 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
      * contents. For example, Luigi's @c x222C_cycloneCharge.
      */
     fp = HSD_ObjAlloc(&fighter_alloc_data);
+    /* Kirby's copy-ability data (u.kb.hat.*, x44) and others are read before
+     * anything writes them and rely on the block being zero, as fresh GameCube
+     * heap was. A recycled block holds the previous fighter's bytes, which
+     * showed up as garbage pointers in Kirby's hat tables. Clear it, as
+     * ftParts_80074E58 already does for fp->parts. */
+    memzero(fp, sizeof(*fp));
     fp->dat_attrs_backup = HSD_ObjAlloc(&fighter_dat_attrs_alloc_data);
     GObj_InitUserData(gobj, 4U, &Fighter_Unload_8006DABC, fp);
     ftData_8008572C(input->internal_id);
@@ -1405,11 +1414,63 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
     }
 }
 
+/* Diagnostic: Kirby's up throw leaves both fighters hanging just above the
+ * ground forever (the game keeps running). Watch every awake fighter, and when
+ * its motion and animation frame have not changed for 90 frames, log what it
+ * could be waiting on: hitlag, SDI timer, the hitlag cap, position, air or
+ * ground. Logs again when the stall ends. Capped, and silent otherwise. */
+static void Fighter_DiagStall(Fighter* fp)
+{
+    static struct {
+        int motion;
+        float frame;
+        int count;
+    } st[8];
+    static int budget = 30;
+    int slot = fp->player_idx & 7;
+
+    if ((int) fp->motion_id == st[slot].motion &&
+        fp->cur_anim_frame == st[slot].frame)
+    {
+        st[slot].count++;
+        if (st[slot].count == 90 && budget > 0) {
+            budget--;
+            pc_log_line("stalldiag: player %d kind %d motion %d frame %.2f "
+                        "speed %.2f stuck 90 frames",
+                        (int) fp->player_idx, (int) fp->kind,
+                        (int) fp->motion_id, fp->cur_anim_frame,
+                        fp->frame_speed_mul);
+            pc_log_line("stalldiag:   hitlag %.2f x1954 %.2f x1964 %.2f "
+                        "cap %.2f allow_sdi %d x221A_b3 %d x2219_b7 %d",
+                        fp->dmg.x195c_hitlag_frames, fp->dmg.x1954, fp->x1964,
+                        p_ftCommonData->x194_unkHitLagFrames,
+                        (int) fp->allow_sdi, (int) fp->x221A_b3,
+                        (int) fp->x2219_b7);
+            pc_log_line("stalldiag:   pos %.2f %.2f air_or_ground %d "
+                        "sleeping %d",
+                        fp->cur_pos.x, fp->cur_pos.y, (int) fp->ground_or_air,
+                        (int) fp->is_sleeping);
+        }
+        return;
+    }
+    if (st[slot].count >= 90 && budget > 0) {
+        budget--;
+        pc_log_line("stalldiag: player %d resumed after %d frames "
+                    "(was motion %d, now %d)",
+                    (int) fp->player_idx, st[slot].count, st[slot].motion,
+                    (int) fp->motion_id);
+    }
+    st[slot].motion = (int) fp->motion_id;
+    st[slot].frame = fp->cur_anim_frame;
+    st[slot].count = 0;
+}
+
 void Fighter_procHitlag(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
     if (!fp->is_sleeping) {
+        Fighter_DiagStall(fp);
         if (fp->dmg.x1954 > 0.0f) {
             fp->dmg.x1954 -= 1.0f;
             if (fp->dmg.x1954 <= 0.0f) {
@@ -1456,11 +1517,155 @@ void Fighter_procHitlag(Fighter_GObj* gobj)
     }
 }
 
+/* Sudden death cheat. An "opponent" is any fighter that is not P1 and not on
+ * P1's team (the same team test ftlib.c uses). It is decided per fighter, never
+ * by slot count, so Multi-Man's extra wireframes are covered no matter how they
+ * are spawned. Stamina mode and the hands are skipped: there the field holds
+ * HP, not percent, so pinning it to 999 would make them tanks. */
+#define PC_SUDDEN_DEATH_PERCENT 999
+
+static bool Fighter_IsSuddenDeathVictim(Fighter* fp)
+{
+    if (fp->player_idx == 0 || fp->x2225_b7) {
+        return false;
+    }
+    if (fp->kind == Ft_Kind_MasterH || fp->kind == Ft_Kind_CrezyH) {
+        return false;
+    }
+    if (gm_8016B168() && fp->team == Player_GetTeam(0)) {
+        return false;
+    }
+    return pc_is_sudden_death_enabled();
+}
+
+/* Diagnostic: Kirby's copy-ability data has been seen holding small integers
+ * where pointers belong (0x7 in the visibility table, 0xE in the hat texture
+ * list). Log a full snapshot whenever Kirby's hat state changes, so the log
+ * shows the exact transition (inhale, spit, swap) at which the values go bad.
+ * Capped, and silent while nothing changes. */
+static void Fighter_DiagKirbyHat(Fighter* fp)
+{
+    static uintptr_t last_sig[8];
+    static int budget = 60;
+    uintptr_t sig;
+    int slot = fp->player_idx & 7;
+    int i;
+
+    if (budget <= 0) {
+        return;
+    }
+    sig = (uintptr_t) fp->u.kb.hat.kind * 31u;
+    sig = sig * 31u + (uintptr_t) fp->u.kb.hat.jobj;
+    sig = sig * 31u + (uintptr_t) fp->u.kb.hat.x14.data;
+    sig = sig * 31u + (uintptr_t) fp->u.kb.hat.x1C.data;
+    sig = sig * 31u + fp->u.kb.x44.n_costume_tobjs;
+    for (i = 0; i < 5; i++) {
+        sig = sig * 31u + (uintptr_t) fp->u.kb.x44.costume_tobjs[i];
+        sig = sig * 31u + (uintptr_t) fp->u.kb.hat.x24.xC[i];
+        sig = sig * 31u + (uintptr_t) fp->x5AC.xC[i];
+    }
+    sig = sig * 31u + fp->is_metal;
+    if (sig == last_sig[slot]) {
+        return;
+    }
+    last_sig[slot] = sig;
+    budget--;
+    pc_log_line("kbdiag: player %d motion %d hat.kind %d jobj %p x14 %p/%d "
+             "x1C %p/%d metal %d",
+             (int) fp->player_idx, (int) fp->motion_id,
+             (int) fp->u.kb.hat.kind, (void*) fp->u.kb.hat.jobj,
+             (void*) fp->u.kb.hat.x14.data, (int) fp->u.kb.hat.x14.count,
+             (void*) fp->u.kb.hat.x1C.data, (int) fp->u.kb.hat.x1C.count,
+             (int) fp->is_metal);
+    pc_log_line("kbdiag:   x44 n %u x5D0 %p tobjs %p %p %p %p %p",
+             (unsigned) fp->u.kb.x44.n_costume_tobjs,
+             (void*) fp->u.kb.x44.x5D0, (void*) fp->u.kb.x44.costume_tobjs[0],
+             (void*) fp->u.kb.x44.costume_tobjs[1],
+             (void*) fp->u.kb.x44.costume_tobjs[2],
+             (void*) fp->u.kb.x44.costume_tobjs[3],
+             (void*) fp->u.kb.x44.costume_tobjs[4]);
+    pc_log_line("kbdiag:   hat.x24 model_num %u xC %p %p %p %p %p",
+             (unsigned) fp->u.kb.hat.x24.model_num,
+             (void*) fp->u.kb.hat.x24.xC[0], (void*) fp->u.kb.hat.x24.xC[1],
+             (void*) fp->u.kb.hat.x24.xC[2], (void*) fp->u.kb.hat.x24.xC[3],
+             (void*) fp->u.kb.hat.x24.xC[4]);
+    pc_log_line("kbdiag:   x5AC model_num %u xC %p %p %p %p %p",
+             (unsigned) fp->x5AC.model_num, (void*) fp->x5AC.xC[0],
+             (void*) fp->x5AC.xC[1], (void*) fp->x5AC.xC[2],
+             (void*) fp->x5AC.xC[3], (void*) fp->x5AC.xC[4]);
+}
+
+/* Probe: Kirby's body turns into a silver shell when a "parts" hat is worn.
+ * Cycle through shading-flag overrides on a timer and log the flags, so the
+ * video + log show which flag causes it. Phases last 6 s each:
+ * 0 untouched, 1 metal/x2227_b3/x2226_b5 cleared, 2 x2223_b2 forced,
+ * 3 x2228_b0 and x2224_b0 cleared, 4 untouched. Test-only. */
+static void Fighter_KbShadeProbe(Fighter* fp)
+{
+    static int frames[8];
+    static int last_kind[8];
+    int slot = fp->player_idx & 7;
+    int phase;
+
+    if (fp->u.kb.hat.kind == 0) {
+        last_kind[slot] = 0;
+        frames[slot] = 0;
+        return;
+    }
+    if (last_kind[slot] != (int) fp->u.kb.hat.kind) {
+        last_kind[slot] = (int) fp->u.kb.hat.kind;
+        frames[slot] = 0;
+        pc_log_line("kbshade: player %d hat kind %d acquired", slot,
+                    last_kind[slot]);
+    }
+    frames[slot]++;
+    phase = (frames[slot] / 360) % 5;
+    if (frames[slot] % 360 == 1) {
+        pc_log_line("kbshade: player %d kind %d phase %d | is_metal %d "
+                    "x2226_b5 %d x2227_b3 %d x2223_b2 %d x2228_b0 %d "
+                    "x2224_b0 %d",
+                    slot, last_kind[slot], phase, (int) fp->is_metal,
+                    (int) fp->x2226_b5, (int) fp->x2227_b3,
+                    (int) fp->x2223_b2, (int) fp->x2228_b0,
+                    (int) fp->x2224_b0);
+    }
+    switch (phase) {
+    case 1:
+        fp->is_metal = 0;
+        fp->x2227_b3 = 0;
+        fp->x2226_b5 = 0;
+        break;
+    case 2:
+        fp->x2223_b2 = 1;
+        break;
+    case 3:
+        fp->x2228_b0 = 0;
+        fp->x2224_b0 = 0;
+        break;
+    default:
+        break;
+    }
+}
+
 void Fighter_procAnim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
     if (!fp->is_sleeping) {
+        if (fp->kind == Ft_Kind_Kirby) {
+            Fighter_DiagKirbyHat(fp);
+            Fighter_KbShadeProbe(fp);
+        }
+        /* Runs every frame, so respawns and freshly spawned enemies are caught
+         * on their first awake frame. The HUD copy is only touched on change. */
+        if (fp->dmg.x1830_percent < PC_SUDDEN_DEATH_PERCENT &&
+            Fighter_IsSuddenDeathVictim(fp))
+        {
+            fp->dmg.x1830_percent = PC_SUDDEN_DEATH_PERCENT;
+            Player_SetHPByIndex(fp->player_idx, fp->is_sub_fighter,
+                                PC_SUDDEN_DEATH_PERCENT);
+        }
+
         fp->pos_delta.x = fp->cur_pos.x - fp->prev_pos.x;
         fp->pos_delta.y = fp->cur_pos.y - fp->prev_pos.y;
         fp->pos_delta.z = fp->cur_pos.z - fp->prev_pos.z;
@@ -2667,6 +2872,15 @@ void Fighter_UnkTakeDamage_8006CC30(Fighter* fp, float arg0)
 
 void Fighter_TakeDamage_8006CC7C(Fighter* fp, float damage_amount)
 {
+    /* P1 invincible cheat: percent is the only thing knockback reads from the
+     * victim's history (ftColl_GetDamageCount), so adding 0 keeps every hit
+     * a first hit. The hit's own damage still reaches the knockback formula
+     * through dmg.x1838_percentTemp, and everything downstream (HUD, stats,
+     * metal health) just sees a 0-damage hit. */
+    if (fp->player_idx == 0 && pc_is_p1_invincible_enabled()) {
+        damage_amount = 0.0f;
+    }
+
     if (!fp->x2226_b4 || fp->x2226_b3) {
         fp->dmg.x1830_percent += damage_amount;
         if (fp->metal_timer != 0) {

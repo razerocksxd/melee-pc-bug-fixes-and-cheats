@@ -308,7 +308,8 @@ class Launcher final : public Rml::EventListener {
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb"};
         case 2:
-            return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
+            return {"unlock-all", "frozen-stadium", "free-camera", "ucf", "p1-invincible",
+                "sudden-death"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
         case 5:
@@ -569,6 +570,12 @@ class Launcher final : public Rml::EventListener {
         text("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         text("free-camera", prefs.free_camera ? "Free" : "Normal");
         text("ucf", std::getenv("MELEE_UCF") ? "Environment override" : prefs.ucf ? "On" : "Off");
+        text("p1-invincible", std::getenv("MELEE_P1_INVINCIBLE") ? "Environment override" :
+                              prefs.p1_invincible                ? "On" :
+                                                                   "Off");
+        text("sudden-death", std::getenv("MELEE_SUDDEN_DEATH") ? "Environment override" :
+                             prefs.sudden_death                ? "On" :
+                                                                 "Off");
         text("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         text("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -801,6 +808,16 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("ucf")->Focus();
+        } else if (id == "p1-invincible") {
+            prefs.p1_invincible = !prefs.p1_invincible;
+            save();
+            refresh_settings();
+            element("p1-invincible")->Focus();
+        } else if (id == "sudden-death") {
+            prefs.sudden_death = !prefs.sudden_death;
+            save();
+            refresh_settings();
+            element("sudden-death")->Focus();
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
             save();
@@ -1450,7 +1467,8 @@ public:
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
                 "port-check-update"};
         case 2:
-            return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
+            return {"unlock-all", "frozen-stadium", "free-camera", "ucf", "p1-invincible",
+                "sudden-death"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
         default: {
@@ -1624,6 +1642,12 @@ public:
         label("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         label("free-camera", prefs.free_camera ? "Free" : "Normal");
         label("ucf", std::getenv("MELEE_UCF") ? "Environment override" : prefs.ucf ? "On" : "Off");
+        label("p1-invincible", std::getenv("MELEE_P1_INVINCIBLE") ? "Environment override" :
+                               prefs.p1_invincible                ? "On" :
+                                                                    "Off");
+        label("sudden-death", std::getenv("MELEE_SUDDEN_DEATH") ? "Environment override" :
+                              prefs.sudden_death                ? "On" :
+                                                                  "Off");
         label("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         label("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -1829,6 +1853,10 @@ public:
             prefs.free_camera = !prefs.free_camera;
         } else if (id == "ucf") {
             prefs.ucf = !prefs.ucf;
+        } else if (id == "p1-invincible") {
+            prefs.p1_invincible = !prefs.p1_invincible;
+        } else if (id == "sudden-death") {
+            prefs.sudden_death = !prefs.sudden_death;
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
         } else if (id == "backend") {
@@ -2182,6 +2210,22 @@ extern "C" const char* pc_app_rev(void) {
         return env;
     }
     return pc::get_app_version().c_str();
+}
+/* P1 invincibility and sudden death rewrite damage, so like free camera they
+ * must never reach a synced match: peers would desync on the first hit. */
+extern "C" bool pc_is_p1_invincible_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_P1_INVINCIBLE");
+    return env ? env[0] != '0' : prefs.p1_invincible;
+}
+extern "C" bool pc_is_sudden_death_enabled(void) {
+    if (pc_net_deterministic()) {
+        return false;
+    }
+    static const char* env = std::getenv("MELEE_SUDDEN_DEATH");
+    return env ? env[0] != '0' : prefs.sudden_death;
 }
 extern "C" bool pc_is_ucf_enabled(void) {
     if (pc_net_deterministic()) {

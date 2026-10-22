@@ -117,6 +117,16 @@
               </span>
               <button id="ucf" class="value">Off</button>
             </div>
+            <div class="row" data-desc="Player 1 takes no damage, so every hit knocks back like a first hit. Offline only.">
+              <span class="name">P1 invincible<span class="detail">Player 1 takes no damage, so every hit knocks back like a first hit. Offline only.</span>
+              </span>
+              <button id="p1-invincible" class="value">Off</button>
+            </div>
+            <div class="row" data-desc="Opponents are held at 999%; teammates and the hands are spared. Offline only.">
+              <span class="name">Sudden death<span class="detail">Opponents are held at 999%; teammates and the hands are spared. Offline only.</span>
+              </span>
+              <button id="sudden-death" class="value">Off</button>
+            </div>
           </div>
           <div id="page-audio" class="page">
             <div class="row" data-desc="Left/right or drag to adjust.">

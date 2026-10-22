@@ -199,7 +199,13 @@ union ftCommon_MotionVars {
         /* fp+2340 */ bool x0; // itemget action is heavy type?
     } itemget;
     struct ftCommon_MotionVars_fighterthrow {
-        /* fp+2340 */ UNK_T x0;
+        /* x0 is a 4-byte slot on GameCube. UNK_T is void* here (8 bytes), which
+         * shifted x4..self_vel_x by 4 and broke the overlay with throw_.xC (a
+         * Vec at +0xC): ftCo_800DD724 stores transNOffset there and the phys
+         * code reads it back as self_vel_y/self_vel_x. With the shift Kirby's
+         * up throw got no horizontal velocity and the wrong vertical one, and
+         * hung mid-air forever. Keep it 4 bytes so the views line up. */
+        /* fp+2340 */ s32 x0;
         /* fp+2344 */ int x4;
         /* fp+2348 */ int x8;
         /* fp+234C */ u8 pad_xC[4];
